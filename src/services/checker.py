@@ -1,10 +1,7 @@
-"""Health check: port, Xray, IP, and GeoIP."""
-
 from __future__ import annotations
 
 import asyncio
 import json
-import os
 import random
 import re
 import socket
@@ -13,19 +10,22 @@ from datetime import datetime, timezone
 
 import httpx
 
-from src.vless import VlessConfig, build_xray_config
-from src.xray import start_xray, stop_xray
-
-MAX_RETRIES = int(os.environ.get("MAX_RETRIES", "1"))
-IP_CHECK_URL = os.environ.get("IP_CHECK_URL", "https://api.ipify.org?format=json")
-GEOIP_URL = os.environ.get("GEOIP_URL", "http://ip-api.com/json")
-REQUEST_TIMEOUT = int(os.environ.get("REQUEST_TIMEOUT_MS", "15000")) / 1000
-GEOIP_TIMEOUT = int(os.environ.get("GEOIP_TIMEOUT_MS", "5000")) / 1000
+from src.constants import (
+    GATEWAY_REQUEST_TIMEOUT,
+    GEOIP_TIMEOUT,
+    GEOIP_URL,
+    IP_CHECK_URL,
+    MAX_RETRIES,
+    REQUEST_TIMEOUT,
+    SOCKS_PROXY,
+)
+from src.utils.proxy import ProxyConfig, build_xray_config
+from src.utils.xray import start_xray, stop_xray
 
 _reserved_ports: set[int] = set()
 
 
-def result_row(config: VlessConfig, **fields) -> dict:
+def result_row(config: ProxyConfig, **fields) -> dict:
     row = {
         "index": config.index,
         "status": "failed",
@@ -79,11 +79,15 @@ def parse_ip(body: str) -> str | None:
     return None
 
 
-async def fetch_exit_ip(socks_port: int) -> tuple[str, int]:
+async def fetch_exit_ip(
+    socks_port: int,
+    *,
+    timeout: float | None = None,
+) -> tuple[str, int]:
     start = time.monotonic()
     async with httpx.AsyncClient(
-        proxy=f"socks5h://127.0.0.1:{socks_port}",
-        timeout=REQUEST_TIMEOUT,
+        proxy=f"{SOCKS_PROXY}:{socks_port}",
+        timeout=timeout or REQUEST_TIMEOUT,
     ) as client:
         response = await client.get(IP_CHECK_URL)
     if response.status_code < 200 or response.status_code >= 300:
@@ -117,8 +121,10 @@ async def lookup_geo(ip: str) -> dict[str, str]:
 
 
 async def check_config(
-    config: VlessConfig,
+    config: ProxyConfig,
     shutdown: asyncio.Event | None = None,
+    *,
+    gateway_port: int | None = None,
 ) -> dict:
     last_error = ""
 
@@ -128,14 +134,18 @@ async def check_config(
 
         socks_port = None
         session = None
+        request_timeout = GATEWAY_REQUEST_TIMEOUT if gateway_port else REQUEST_TIMEOUT
         try:
             socks_port = allocate_port()
             session = await start_xray(
-                build_xray_config(config, socks_port),
+                build_xray_config(config, socks_port, gateway_port=gateway_port),
                 socks_port,
                 shutdown,
             )
-            ip, latency_ms = await fetch_exit_ip(socks_port)
+            ip, latency_ms = await fetch_exit_ip(
+                socks_port,
+                timeout=request_timeout,
+            )
 
             geo = {}
             try:
@@ -152,7 +162,7 @@ async def check_config(
                 **geo,
             )
         except Exception as err:
-            last_error = str(err)
+            last_error = str(err) or repr(err)
         finally:
             if session:
                 await stop_xray(session)

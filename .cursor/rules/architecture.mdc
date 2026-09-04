@@ -1,26 +1,47 @@
 ---
-description: Module layout and separation of concerns for the VLESS checker
+description: Module layout and separation of concerns for the proxy checker
 alwaysApply: true
 ---
 
 # Architecture
 
-This is a CLI VLESS configuration checker. Python orchestrates Xray subprocesses; it does not implement VLESS.
+This is a CLI proxy configuration checker (VLESS, Trojan, VMess, Shadowsocks). Python orchestrates Xray subprocesses; it does not implement proxy protocols.
 
 ## Module layout
 
 ```
 src/
-├── __main__.py   # `python -m src` entry
-├── main.py       # CLI, progress, output, concurrency
-├── vless.py      # VLESS URL parsing and Xray config generation
-├── xray.py       # Xray subprocess lifecycle
-└── checker.py    # Health check (port, IP, GeoIP)
+├── __main__.py       # `python -m src` entry
+├── main.py           # thin CLI (run / test commands)
+├── constants/        # env-backed settings
+├── services/         # business logic
+│   ├── pipeline.py   # orchestration
+│   ├── gateway.py    # Russian gateway session
+│   ├── fetcher.py    # subscription fetching
+│   ├── checker.py    # health check (port, IP, GeoIP)
+│   ├── runner.py     # concurrent test runner
+│   └── telegram.py   # publish configs that work in Russia
+├── resources/        # file I/O
+│   ├── configs.py
+│   ├── results.py
+│   ├── subscriptions.py
+│   └── dedupe.py
+└── utils/            # low-level helpers
+    ├── proxy/        # proxy URL parsing and Xray config assembly
+    │   ├── config.py
+    │   ├── vless.py
+    │   ├── trojan.py
+    │   ├── vmess.py
+    │   └── shadowsocks.py
+    ├── xray.py       # Xray subprocess lifecycle
+    └── subscription.py
 ```
 
 ## Rules
 
-- Keep orchestration in `main.py` thin — delegate checks to `checker.py`.
-- Xray process management stays in `xray.py`.
-- VLESS parsing and Xray config building stay in `vless.py`.
+- Keep orchestration in `main.py` and `services/pipeline.py` thin — delegate to services.
+- Xray process management stays in `utils/xray.py`.
+- Protocol parsing and per-protocol Xray outbounds stay in `utils/proxy/`; dispatch via `utils/proxy/__init__.py`.
+- Health checks stay in `services/checker.py`.
+- File I/O stays in `resources/`.
 - Use `asyncio.Semaphore` for concurrency — no custom worker pool.

@@ -11,10 +11,12 @@ venv/
 # Secrets and local config
 .env
 configs.txt
+data/
 
 # Output
 results/
 tmp/
+bin/
 *.log
 
 # OS
