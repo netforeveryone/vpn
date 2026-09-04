@@ -1,5 +1,3 @@
-"""Xray subprocess lifecycle."""
-
 from __future__ import annotations
 
 import asyncio
@@ -9,11 +7,15 @@ import tempfile
 import time
 from pathlib import Path
 
-XRAY_PATH = os.environ.get("XRAY_PATH", "xray")
-STARTUP_TIMEOUT = int(os.environ.get("STARTUP_TIMEOUT_MS", "10000")) / 1000
+from src.constants import STARTUP_TIMEOUT, XRAY_PATH
+from src.utils.platform import install_xray_hint, is_supported_platform, platform_label
 
 
 async def verify_xray_binary() -> None:
+    if not is_supported_platform():
+        raise RuntimeError(
+            f"Unsupported platform {platform_label()}. Use macOS or Linux."
+        )
     try:
         process = await asyncio.create_subprocess_exec(
             XRAY_PATH,
@@ -22,7 +24,16 @@ async def verify_xray_binary() -> None:
             stderr=asyncio.subprocess.DEVNULL,
         )
     except FileNotFoundError as exc:
-        raise RuntimeError(f'Xray binary not found at "{XRAY_PATH}"') from exc
+        raise RuntimeError(
+            f'Xray binary not found at "{XRAY_PATH}".\n{install_xray_hint()}'
+        ) from exc
+    except OSError as exc:
+        if exc.errno == 8:
+            raise RuntimeError(
+                f'Xray binary at "{XRAY_PATH}" cannot run on {platform_label()}.\n'
+                f"{install_xray_hint()}"
+            ) from exc
+        raise
     if await process.wait() != 0:
         raise RuntimeError(f'Xray binary at "{XRAY_PATH}" is not working')
 

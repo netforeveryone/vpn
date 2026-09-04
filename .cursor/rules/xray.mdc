@@ -1,6 +1,6 @@
 ---
 description: Xray subprocess orchestration rules
-globs: src/xray.py,src/vless.py,src/checker.py
+globs: src/utils/xray.py,src/utils/proxy/**,src/services/checker.py
 alwaysApply: false
 ---
 
@@ -20,6 +20,6 @@ A config is healthy only when HTTP/HTTPS succeeds through the SOCKS5 proxy. TCP 
 
 ## VLESS parsing
 
-- Parse URLs with `urllib.parse` in `vless.py`.
+- Parse URLs with `urllib.parse` in `utils/proxy/`.
 - Support tcp, ws, grpc, xhttp transports; tls and reality security.
 - Fragment/name is display-only — never use it as proof of geographic location.
