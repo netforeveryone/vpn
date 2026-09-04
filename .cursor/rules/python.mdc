@@ -1,0 +1,22 @@
+---
+description: Python conventions for this CLI application
+globs: src/**/*.py
+alwaysApply: false
+---
+
+# Python
+
+CLI tool — no web frameworks.
+
+## Prefer
+
+- `asyncio` for I/O-bound orchestration
+- `urllib.parse` for URL parsing
+- Plain `dict` for result rows
+- `httpx` for HTTP through SOCKS5 and GeoIP
+
+## Avoid
+
+- Extra modules for one-off helpers
+- Structured logging frameworks — plain `print` is enough
+- Logging credentials (UUIDs, full VLESS URLs)

@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Secrets and local config
+.env
+configs.txt
+
+# Output
+results/
+tmp/
+*.log
+
+# OS
+.DS_Store
+
+# Legacy Node
+node_modules/
