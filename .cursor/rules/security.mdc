@@ -1,0 +1,11 @@
+---
+description: Credential handling and gitignore rules
+alwaysApply: true
+---
+
+# Security
+
+- Never log full VLESS URLs, UUIDs, passwords, or sensitive params.
+- Never send VLESS credentials to external services; only the public exit IP goes to GeoIP.
+- Do not include credentials in output files (`results/`).
+- Never commit `.env`, `configs.txt`, or `results/` — they are gitignored.

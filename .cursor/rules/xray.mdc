@@ -1,0 +1,25 @@
+---
+description: Xray subprocess orchestration rules
+globs: src/xray.py,src/vless.py,src/checker.py
+alwaysApply: false
+---
+
+# Xray
+
+Xray is the VLESS engine. Python orchestrates via `asyncio.create_subprocess_exec()`.
+
+## Configuration
+
+- Binary path from `XRAY_PATH` env var (default `xray`). Never hardcode paths.
+- Each concurrent test gets its own temp config, Xray process, SOCKS5 port, timeout, and cleanup.
+- Always terminate Xray and delete temp config files after each test.
+
+## Health criteria
+
+A config is healthy only when HTTP/HTTPS succeeds through the SOCKS5 proxy. TCP connect alone is insufficient.
+
+## VLESS parsing
+
+- Parse URLs with `urllib.parse` in `vless.py`.
+- Support tcp, ws, grpc, xhttp transports; tls and reality security.
+- Fragment/name is display-only — never use it as proof of geographic location.

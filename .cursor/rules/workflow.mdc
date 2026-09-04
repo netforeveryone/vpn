@@ -1,0 +1,35 @@
+---
+description: CLI output, concurrency, error handling, and shutdown
+alwaysApply: true
+---
+
+# Workflow
+
+## Concurrency
+
+- Worker pool with default `CONCURRENCY=10`; never unlimited Xray processes.
+- Each worker isolates ports and processes; no port collisions.
+
+## Error handling
+
+- One failed config must not crash the app. Return structured errors per config.
+- Handle: invalid URL, missing Xray, startup timeout, connection/TLS/Reality/HTTP failures, GeoIP failure.
+
+## CLI progress
+
+```
+[1/500] TESTING Estonia, Tallinn
+[1/500] HEALTHY 1.2.3.4 | Estonia | Tallinn | 842ms
+Progress: 2/500 | Healthy: 1 | Failed: 1
+```
+
+## Graceful shutdown (SIGINT/SIGTERM)
+
+1. Stop starting new tests
+2. Clean up active Xray processes and temp files
+3. Save collected results to `results/results.csv` and `results/results.json`
+4. Exit cleanly — no orphaned Xray processes
+
+## Output fields
+
+`index`, `status`, `vless_name`, `server`, `server_port`, `exit_ip`, `country`, `country_code`, `region`, `city`, `isp`, `asn`, `latency_ms`, `error`, `tested_at`

@@ -1,0 +1,26 @@
+---
+description: Module layout and separation of concerns for the VLESS checker
+alwaysApply: true
+---
+
+# Architecture
+
+This is a CLI VLESS configuration checker. Python orchestrates Xray subprocesses; it does not implement VLESS.
+
+## Module layout
+
+```
+src/
+├── __main__.py   # `python -m src` entry
+├── main.py       # CLI, progress, output, concurrency
+├── vless.py      # VLESS URL parsing and Xray config generation
+├── xray.py       # Xray subprocess lifecycle
+└── checker.py    # Health check (port, IP, GeoIP)
+```
+
+## Rules
+
+- Keep orchestration in `main.py` thin — delegate checks to `checker.py`.
+- Xray process management stays in `xray.py`.
+- VLESS parsing and Xray config building stay in `vless.py`.
+- Use `asyncio.Semaphore` for concurrency — no custom worker pool.
