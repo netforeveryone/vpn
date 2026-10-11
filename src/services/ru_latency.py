@@ -25,5 +25,7 @@ async def measure_ru_tcp_latency(
         timeout=timeout,
     )
     elapsed_ms = int((time.monotonic() - start) * 1000)
-    stream.close()
+    close = stream.close()
+    if asyncio.iscoroutine(close):
+        await close
     return elapsed_ms
