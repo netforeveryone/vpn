@@ -11,6 +11,7 @@ from src.constants import (
     TELEGRAM_BOT_TOKEN,
     TELEGRAM_CHAT_ID,
     TELEGRAM_ENABLED,
+    TELEGRAM_PUBLISH_ALL,
     TELEGRAM_PUBLISH_MODE,
     sent_configs_file,
 )
@@ -141,6 +142,8 @@ async def _send_document(filename: str, content: str, caption: str) -> None:
 async def publish_configs(
     results: list[dict],
     urls: dict[int, str],
+    *,
+    skip_dedupe: bool | None = None,
 ) -> int:
     if not TELEGRAM_ENABLED:
         return 0
@@ -162,8 +165,9 @@ async def publish_configs(
         print("No healthy configs that work in Russia to publish")
         return 0
 
+    ignore_dedupe = skip_dedupe if skip_dedupe is not None else TELEGRAM_PUBLISH_ALL
     sent_path = sent_configs_file(TELEGRAM_CHAT_ID)
-    sent = load_sent(sent_path)
+    sent = load_sent(sent_path) if not ignore_dedupe else set()
     to_send: list[tuple[dict, str]] = []
 
     for row in publishable:
@@ -171,7 +175,7 @@ async def publish_configs(
         if not raw_url:
             continue
         fingerprint = config_fingerprint(raw_url)
-        if fingerprint in sent:
+        if not ignore_dedupe and fingerprint in sent:
             continue
         to_send.append((row, raw_url))
 

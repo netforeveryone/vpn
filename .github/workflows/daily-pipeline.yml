@@ -17,9 +17,13 @@ jobs:
     env:
       XRAY_PATH: bin/xray
       TELEGRAM_ENABLED: "true"
+      TELEGRAM_PUBLISH_MODE: message
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_BACKUP_BOT_TOKEN: ${{ secrets.TELEGRAM_BACKUP_BOT_TOKEN }}
-      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      # Public channel; override via repo secret if needed
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID != '' && secrets.TELEGRAM_CHAT_ID || '@vpnf24' }}
+      CONCURRENCY: "5"
+      GATEWAY_CONCURRENCY: "2"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -42,7 +46,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pipeline-results
+          name: pipeline-results-${{ github.run_id }}
           path: |
             results/run.log
             results/results.csv

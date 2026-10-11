@@ -111,3 +111,8 @@ TELEGRAM_ENABLED = os.environ.get("TELEGRAM_ENABLED", "false").lower() in (
 )
 # message = <code> config block per post (tap to copy); file = .txt attachment; both
 TELEGRAM_PUBLISH_MODE = os.environ.get("TELEGRAM_PUBLISH_MODE", "message").lower()
+TELEGRAM_PUBLISH_ALL = os.environ.get("TELEGRAM_PUBLISH_ALL", "false").lower() in (
+    "1",
+    "true",
+    "yes",
+)
