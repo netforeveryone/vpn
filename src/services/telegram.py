@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import html
+import json
 from datetime import datetime, timezone
 
 import httpx
@@ -13,6 +14,7 @@ from src.constants import (
     TELEGRAM_ENABLED,
     TELEGRAM_PUBLISH_ALL,
     TELEGRAM_PUBLISH_MODE,
+    TELEGRAM_SEND_DELAY,
     sent_configs_file,
 )
 from src.resources.dedupe import config_fingerprint, load_sent, save_sent
@@ -89,12 +91,27 @@ def _chat_not_found_hint(response_text: str) -> str | None:
     return None
 
 
+def _retry_after_seconds(response_text: str) -> float | None:
+    try:
+        data = json.loads(response_text)
+    except json.JSONDecodeError:
+        return None
+    if data.get("error_code") != 429:
+        return None
+    params = data.get("parameters") or {}
+    retry = params.get("retry_after")
+    if retry is None:
+        return 5.0
+    return float(retry)
+
+
 async def _api_post(
     method: str,
     *,
     json_body: dict | None = None,
     data: dict | None = None,
     files: dict | None = None,
+    max_attempts: int = 12,
 ) -> httpx.Response:
     tokens = _bot_tokens()
     if not tokens:
@@ -102,20 +119,38 @@ async def _api_post(
 
     last_error = ""
     async with httpx.AsyncClient(timeout=60) as client:
-        for label, token in tokens:
-            url = f"https://api.telegram.org/bot{token}/{method}"
-            response = await client.post(url, json=json_body, data=data, files=files)
-            if 200 <= response.status_code < 300:
-                body = response.json()
-                if body.get("ok"):
-                    if label != "primary":
-                        print(f"Telegram {method} sent via {label} bot")
-                    return response
-            last_error = response.text
-            hint = _chat_not_found_hint(response.text)
-            if hint:
-                raise RuntimeError(f"{hint} (HTTP {response.status_code})")
-            print(f"Telegram {method} failed with {label} bot: HTTP {response.status_code}")
+        for attempt in range(max_attempts):
+            rate_limited = False
+            for label, token in tokens:
+                url = f"https://api.telegram.org/bot{token}/{method}"
+                response = await client.post(url, json=json_body, data=data, files=files)
+                if 200 <= response.status_code < 300:
+                    body = response.json()
+                    if body.get("ok"):
+                        if label != "primary":
+                            print(f"Telegram {method} sent via {label} bot")
+                        return response
+                last_error = response.text
+                hint = _chat_not_found_hint(response.text)
+                if hint:
+                    raise RuntimeError(f"{hint} (HTTP {response.status_code})")
+                wait = _retry_after_seconds(response.text)
+                if wait is not None:
+                    print(
+                        f"Telegram rate limit; waiting {wait:.0f}s "
+                        f"(attempt {attempt + 1}/{max_attempts})"
+                    )
+                    await asyncio.sleep(wait + 1.0)
+                    rate_limited = True
+                    break
+                print(
+                    f"Telegram {method} failed with {label} bot: HTTP {response.status_code}"
+                )
+            if rate_limited:
+                continue
+            break
+        else:
+            raise RuntimeError(f"Telegram HTTP error: {last_error}")
 
     raise RuntimeError(f"Telegram HTTP error: {last_error}")
 
@@ -167,7 +202,7 @@ async def publish_configs(
 
     ignore_dedupe = skip_dedupe if skip_dedupe is not None else TELEGRAM_PUBLISH_ALL
     sent_path = sent_configs_file(TELEGRAM_CHAT_ID)
-    sent = load_sent(sent_path) if not ignore_dedupe else set()
+    sent = load_sent(sent_path)
     to_send: list[tuple[dict, str]] = []
 
     for row in publishable:
@@ -184,6 +219,7 @@ async def publish_configs(
         return 0
 
     mode = TELEGRAM_PUBLISH_MODE
+    published = 0
 
     try:
         if mode in ("file", "both"):
@@ -195,18 +231,20 @@ async def publish_configs(
 
         if mode in ("message", "both"):
             for row, raw_url in to_send:
+                fingerprint = config_fingerprint(raw_url)
+                if fingerprint in sent:
+                    continue
                 await _send_message(
                     _format_config_block_message(row, raw_url),
                     html_mode=True,
                 )
-                await asyncio.sleep(0.15)
+                sent.add(fingerprint)
+                save_sent(sent_path, sent)
+                published += 1
+                await asyncio.sleep(TELEGRAM_SEND_DELAY)
     except Exception as err:
-        print(f"Telegram publish failed: {err}")
-        return 0
+        print(f"Telegram publish failed after {published} post(s): {err}")
+        return published
 
-    for _, raw_url in to_send:
-        sent.add(config_fingerprint(raw_url))
-
-    save_sent(sent_path, sent)
-    print(f"Published {len(to_send)} config(s) to Telegram ({mode} mode)")
-    return len(to_send)
+    print(f"Published {published} config(s) to Telegram ({mode} mode)")
+    return published

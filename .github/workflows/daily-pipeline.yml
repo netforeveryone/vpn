@@ -20,10 +20,10 @@ jobs:
       TELEGRAM_PUBLISH_MODE: message
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_BACKUP_BOT_TOKEN: ${{ secrets.TELEGRAM_BACKUP_BOT_TOKEN }}
-      # Public channel; override via repo secret if needed
-      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID != '' && secrets.TELEGRAM_CHAT_ID || '@vpnf24' }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID || '@vpnf24' }}
       CONCURRENCY: "5"
       GATEWAY_CONCURRENCY: "2"
+      TELEGRAM_SEND_DELAY_MS: "1500"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
