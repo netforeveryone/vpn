@@ -15,6 +15,7 @@ from src.constants import (
     GEOIP_TIMEOUT,
     GEOIP_URL,
     IP_CHECK_URL,
+    LATENCY_WARMUP,
     MAX_RETRIES,
     REQUEST_TIMEOUT,
     SOCKS_PROXY,
@@ -142,6 +143,8 @@ async def check_config(
                 socks_port,
                 shutdown,
             )
+            if LATENCY_WARMUP:
+                await fetch_exit_ip(socks_port, timeout=request_timeout)
             ip, latency_ms = await fetch_exit_ip(
                 socks_port,
                 timeout=request_timeout,
