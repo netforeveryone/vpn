@@ -232,7 +232,7 @@ async def publish_configs(
         if mode in ("message", "both"):
             for row, raw_url in to_send:
                 fingerprint = config_fingerprint(raw_url)
-                if fingerprint in sent:
+                if not ignore_dedupe and fingerprint in sent:
                     continue
                 await _send_message(
                     _format_config_block_message(row, raw_url),
