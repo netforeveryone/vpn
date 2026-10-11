@@ -25,6 +25,7 @@ jobs:
       GATEWAY_CONCURRENCY: "15"
       TELEGRAM_SEND_DELAY_MS: "1500"
       TELEGRAM_MAX_LATENCY_MS: "1000"
+      TELEGRAM_TOP_N: "5"
       LATENCY_WARMUP: "true"
     steps:
       - name: Checkout

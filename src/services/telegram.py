@@ -10,12 +10,14 @@ import httpx
 from src.constants import (
     TELEGRAM_BACKUP_BOT_TOKEN,
     TELEGRAM_BOT_TOKEN,
+    TELEGRAM_CHANNEL_USERNAME,
     TELEGRAM_CHAT_ID,
     TELEGRAM_ENABLED,
     TELEGRAM_MAX_LATENCY_MS,
     TELEGRAM_PUBLISH_ALL,
     TELEGRAM_PUBLISH_MODE,
     TELEGRAM_SEND_DELAY,
+    TELEGRAM_TOP_N,
     sent_configs_file,
 )
 from src.resources.dedupe import config_fingerprint, load_sent, save_sent
@@ -23,9 +25,11 @@ from src.resources.dedupe import config_fingerprint, load_sent, save_sent
 # Telegram message limit; keep headroom for HTML wrapper around the config URL.
 _MAX_CODE_LEN = 3800
 
+_channel_display_cache: str | None = None
+
 
 def is_publishable(row: dict) -> bool:
-    """Healthy configs with Russia-gateway TCP latency below the Telegram cap."""
+    """Healthy configs with Russia-routed HTTP latency below the Telegram cap."""
     if row.get("status") != "healthy":
         return False
     if not row.get("russia_routed"):
@@ -67,7 +71,86 @@ async def verify_telegram_bots() -> None:
             print(f"Telegram {label} bot verified: @{username}")
 
 
-def _format_config_block_message(row: dict, raw_url: str) -> str:
+async def resolve_channel_display_id() -> str:
+    """Public channel id for post footer (e.g. @vpnf24)."""
+    global _channel_display_cache
+    if _channel_display_cache:
+        return _channel_display_cache
+
+    if TELEGRAM_CHANNEL_USERNAME:
+        label = TELEGRAM_CHANNEL_USERNAME
+        if not label.startswith("@"):
+            label = f"@{label}"
+        _channel_display_cache = label
+        return label
+
+    chat_id = TELEGRAM_CHAT_ID.strip()
+    if chat_id.startswith("@"):
+        _channel_display_cache = chat_id
+        return chat_id
+
+    token = TELEGRAM_BOT_TOKEN or TELEGRAM_BACKUP_BOT_TOKEN
+    if token and chat_id:
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.get(
+                f"https://api.telegram.org/bot{token}/getChat",
+                params={"chat_id": chat_id},
+            )
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("ok"):
+                    username = (data.get("result") or {}).get("username")
+                    if username:
+                        _channel_display_cache = f"@{username}"
+                        return _channel_display_cache
+
+    _channel_display_cache = chat_id or "@channel"
+    return _channel_display_cache
+
+
+def _rank_publishable(
+    publishable: list[dict],
+    urls: dict[int, str],
+) -> list[tuple[dict, str]]:
+    """Sort by lowest Russia-routed latency; attach raw URL."""
+    ranked: list[tuple[dict, str, int]] = []
+    for row in publishable:
+        raw_url = urls.get(row["index"])
+        if not raw_url:
+            continue
+        ranked.append((row, raw_url, int(row["latency_ms"])))
+    ranked.sort(key=lambda item: item[2])
+    return [(row, raw_url) for row, raw_url, _ in ranked]
+
+
+def _select_for_run(
+    ranked: list[tuple[dict, str]],
+    *,
+    skip_dedupe: bool,
+    sent: set[str],
+) -> list[tuple[dict, str]]:
+    """
+    Pick configs to post this run.
+
+    Default (TELEGRAM_TOP_N): fastest N from this run — dedupe is not applied so each
+    daily run can repost the current best set. With TELEGRAM_PUBLISH_ALL, post every
+    qualifying config (still sorted fastest first). TELEGRAM_TOP_N=0 means no cap.
+    """
+    if TELEGRAM_PUBLISH_ALL:
+        if skip_dedupe:
+            return ranked
+        out: list[tuple[dict, str]] = []
+        for row, raw_url in ranked:
+            if config_fingerprint(raw_url) in sent:
+                continue
+            out.append((row, raw_url))
+        return out
+
+    limit = TELEGRAM_TOP_N if TELEGRAM_TOP_N > 0 else len(ranked)
+    return ranked[:limit]
+
+
+async def _format_config_block_message(row: dict, raw_url: str) -> str:
     """
     Header outside the block; full proxy URL alone inside <code> for Telegram tap-to-copy.
     """
@@ -83,8 +166,12 @@ def _format_config_block_message(row: dict, raw_url: str) -> str:
     else:
         block = f"<code>{escaped_url}</code>"
     ping_label = "RU latency" if row.get("russia_routed") else "ping"
+    channel_id = html.escape(await resolve_channel_display_id())
     return (
-        f"✅ <b>{name}</b>\n{location} | {ping_label} {latency_text}\n\n{block}"
+        f"✅ <b>{name}</b>\n"
+        f"{location} | {ping_label} {latency_text}\n\n"
+        f"{block}\n\n"
+        f"🆔 {channel_id}"
     )
 
 
@@ -215,7 +302,7 @@ async def publish_configs(
     ]
     if slow_healthy:
         print(
-            f"Skipping {len(slow_healthy)} healthy config(s) with RU TCP ping "
+            f"Skipping {len(slow_healthy)} healthy config(s) with RU latency "
             f">= {TELEGRAM_MAX_LATENCY_MS}ms (not posted)"
         )
     if not publishable:
@@ -225,23 +312,21 @@ async def publish_configs(
         )
         return 0
 
+    ranked = _rank_publishable(publishable, urls)
     ignore_dedupe = skip_dedupe if skip_dedupe is not None else TELEGRAM_PUBLISH_ALL
     sent_path = sent_configs_file(TELEGRAM_CHAT_ID)
     sent = load_sent(sent_path)
-    to_send: list[tuple[dict, str]] = []
-
-    for row in publishable:
-        raw_url = urls.get(row["index"])
-        if not raw_url:
-            continue
-        fingerprint = config_fingerprint(raw_url)
-        if not ignore_dedupe and fingerprint in sent:
-            continue
-        to_send.append((row, raw_url))
+    to_send = _select_for_run(ranked, skip_dedupe=ignore_dedupe, sent=sent)
 
     if not to_send:
-        print("No new configs to publish (already sent to this chat)")
+        print("No configs selected to publish this run")
         return 0
+
+    if TELEGRAM_TOP_N > 0 and not TELEGRAM_PUBLISH_ALL:
+        print(
+            f"Telegram: posting top {min(TELEGRAM_TOP_N, len(to_send))} of "
+            f"{len(publishable)} qualifying config(s) (lowest RU latency first)"
+        )
 
     mode = TELEGRAM_PUBLISH_MODE
     published = 0
@@ -251,19 +336,19 @@ async def publish_configs(
             stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d")
             body = _format_bundle_file(to_send)
             filename = f"vpn-working-{stamp}.txt"
-            caption = f"{len(to_send)} working config(s) — one URL per line in the file."
+            channel = await resolve_channel_display_id()
+            caption = (
+                f"Top {len(to_send)} config(s) ({channel}) — one URL per line."
+            )
             await _send_document(filename, body, caption)
 
         if mode in ("message", "both"):
             for row, raw_url in to_send:
-                fingerprint = config_fingerprint(raw_url)
-                if not ignore_dedupe and fingerprint in sent:
-                    continue
                 await _send_message(
-                    _format_config_block_message(row, raw_url),
+                    await _format_config_block_message(row, raw_url),
                     html_mode=True,
                 )
-                sent.add(fingerprint)
+                sent.add(config_fingerprint(raw_url))
                 save_sent(sent_path, sent)
                 published += 1
                 await asyncio.sleep(TELEGRAM_SEND_DELAY)

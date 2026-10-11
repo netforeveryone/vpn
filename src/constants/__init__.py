@@ -121,6 +121,9 @@ TELEGRAM_PUBLISH_ALL = os.environ.get("TELEGRAM_PUBLISH_ALL", "false").lower() i
 )
 TELEGRAM_SEND_DELAY = int(os.environ.get("TELEGRAM_SEND_DELAY_MS", "1200")) / 1000
 TELEGRAM_MAX_LATENCY_MS = int(os.environ.get("TELEGRAM_MAX_LATENCY_MS", "1000"))
+TELEGRAM_TOP_N = int(os.environ.get("TELEGRAM_TOP_N", "5"))
+# Optional display handle for post footer (defaults to @username from TELEGRAM_CHAT_ID / getChat)
+TELEGRAM_CHANNEL_USERNAME = os.environ.get("TELEGRAM_CHANNEL_USERNAME", "").strip()
 
 LATENCY_WARMUP = os.environ.get("LATENCY_WARMUP", "true").lower() in (
     "1",

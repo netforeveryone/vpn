@@ -119,6 +119,8 @@ resources/
 | `TELEGRAM_BACKUP_BOT_TOKEN` | — | Optional fallback bot if primary send fails |
 | `TELEGRAM_PUBLISH_MODE` | `message` | `message` = `<code>` config block per post (tap to copy), `file`, or `both` |
 | `TELEGRAM_MAX_LATENCY_MS` | `1000` | Only save/post configs with Russia-routed HTTP latency below this (ms) |
+| `TELEGRAM_TOP_N` | `5` | Per run, post only the N fastest qualifying configs (lowest RU latency); `0` = no limit |
+| `TELEGRAM_CHANNEL_USERNAME` | — | Footer handle (defaults to `@username` from `TELEGRAM_CHAT_ID` / `getChat`) |
 | `LATENCY_WARMUP` | `true` | Discard first HTTP check through the proxy before recording latency |
 | `STARTUP_TIMEOUT_MS` | `10000` | Xray SOCKS startup timeout |
 | `REQUEST_TIMEOUT_MS` | `15000` | HTTP check timeout |
