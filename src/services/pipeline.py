@@ -13,7 +13,7 @@ from src.constants import (
 from src.resources.configs import load_configs, save_config_lines
 from src.resources.subscriptions import load_subscription_urls
 from src.services.fetcher import IGARECK_CONFIG_URLS, fetch_remote_configs, fetch_russia_configs
-from src.services.gateway import find_gateway
+from src.services.vantage import find_russian_vantage
 from src.services.runner import test_configs
 from src.services.telegram import publish_configs
 from src.utils.xray import verify_xray_binary
@@ -75,8 +75,13 @@ async def run_pipeline() -> int:
 
     ru_configs, _ = load_configs(CONFIGS_RU_FILE)
 
-    print("\nPhase 2: Finding Russian gateway...")
-    gateway = await find_gateway(ru_configs)
+    print("\nPhase 2: Establishing Russian network vantage...")
+    try:
+        gateway = await find_russian_vantage(ru_configs)
+    except RuntimeError as err:
+        print(f"FATAL: {err}", file=sys.stderr)
+        return 1
+    print(f"Russian vantage mode: {gateway.vantage_mode} (exit {gateway.exit_ip})")
     try:
         remote_urls = _remote_config_urls()
         print(
