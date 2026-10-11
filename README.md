@@ -111,7 +111,9 @@ resources/
 | `V2NODES_MAX_PAGES` | `10` | Max pages to fetch from v2nodes subscription and country list |
 | `TELEGRAM_ENABLED` | `false` | Publish configs that work in Russia |
 | `TELEGRAM_BOT_TOKEN` | — | Bot token from BotFather |
-| `TELEGRAM_CHAT_ID` | — | Channel or chat ID |
+| `TELEGRAM_CHAT_ID` | — | Channel (`@vpnf24`) or numeric chat id |
+| `TELEGRAM_BACKUP_BOT_TOKEN` | — | Optional fallback bot if primary send fails |
+| `TELEGRAM_PUBLISH_MODE` | `message` | `message` = `<code>` config block per post (tap to copy), `file`, or `both` |
 | `STARTUP_TIMEOUT_MS` | `10000` | Xray SOCKS startup timeout |
 | `REQUEST_TIMEOUT_MS` | `15000` | HTTP check timeout |
 | `FETCH_TIMEOUT_MS` | `60000` | Subscription fetch timeout |
@@ -127,7 +129,7 @@ resources/
 - `configs.txt` — all fetched configs to test
 - `data/configs_working.txt` — **final result**: configs verified to work from Russia
 - `results/results.csv` / `results/results.json` — structured test results
-- `data/sent_configs.json` — Telegram dedupe state
+- `data/sent_configs_<chat>.json` — Telegram dedupe state (per `TELEGRAM_CHAT_ID`)
 
 Watch progress in the terminal or tail the log:
 
@@ -143,4 +145,4 @@ tail -f results/run.log
 2. Add the bot as admin to your channel (for channels)
 3. Set `TELEGRAM_ENABLED=true`, `TELEGRAM_BOT_TOKEN`, and `TELEGRAM_CHAT_ID` in `.env`
 
-Only configs that pass health checks **through the Russian gateway** are saved to `data/configs_working.txt` and published to Telegram. Already-sent configs are skipped via `data/sent_configs.json`.
+Only configs that pass health checks **through the Russian gateway** are saved to `data/configs_working.txt` and published to Telegram. Default publish mode sends one channel post per config: title/location above, full proxy URL inside a **`<code>` block** (Telegram’s tap-to-copy). Optional `file` mode attaches a plain `.txt` list. Already-sent configs are skipped per target chat (`data/sent_configs_<chat>.json`). Default channel: [@vpnf24](https://t.me/vpnf24) (`TELEGRAM_CHAT_ID=@vpnf24`).

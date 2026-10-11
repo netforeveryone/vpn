@@ -1,0 +1,55 @@
+name: Daily VPN config pipeline
+
+on:
+  schedule:
+    # 06:00 UTC daily
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: daily-vpn-pipeline
+  cancel-in-progress: false
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      XRAY_PATH: bin/xray
+      TELEGRAM_ENABLED: "true"
+      TELEGRAM_PUBLISH_MODE: message
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_BACKUP_BOT_TOKEN: ${{ secrets.TELEGRAM_BACKUP_BOT_TOKEN }}
+      # Public channel; override via repo secret if needed
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID != '' && secrets.TELEGRAM_CHAT_ID || '@vpnf24' }}
+      CONCURRENCY: "5"
+      GATEWAY_CONCURRENCY: "2"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install Xray
+        run: bash scripts/install-xray.sh
+
+      - name: Run full pipeline (Russian vantage + Telegram)
+        run: python -m src run
+
+      - name: Upload run artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-results-${{ github.run_id }}
+          path: |
+            results/run.log
+            results/results.csv
+            results/results.json
+            data/configs_working.txt
+          if-no-files-found: ignore

@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 
 from src.utils.platform import default_xray_path
@@ -80,15 +81,37 @@ DATA_DIR = Path("data")
 
 CONFIGS_RU_FILE = DATA_DIR / "configs_ru.txt"
 CONFIGS_WORKING_FILE = DATA_DIR / "configs_working.txt"
-SENT_CONFIGS_FILE = DATA_DIR / "sent_configs.json"
+def sent_configs_file(chat_id: str | None = None) -> Path:
+    """Per-chat dedupe store so switching TELEGRAM_CHAT_ID can republish."""
+    raw = (chat_id or TELEGRAM_CHAT_ID or "default").strip()
+    safe = re.sub(r"[^\w.-]+", "_", raw.lstrip("@")) or "default"
+    return DATA_DIR / f"sent_configs_{safe}.json"
+
+
+SENT_CONFIGS_FILE = DATA_DIR / "sent_configs.json"  # legacy default path
 SUBSCRIPTION_URLS_FILE = ROOT_DIR / "resources" / "subscription_urls.txt"
 
 SOCKS_PROXY = "socks5h://127.0.0.1"
 RUSSIA_COUNTRY_CODE = "RU"
 
+PUBLIC_PROXY_LIST_URL = os.environ.get(
+    "PUBLIC_PROXY_LIST_URL",
+    "https://api.proxyscrape.com/v2/?request=displayproxies"
+    "&protocol=socks5&country=ru&timeout=10000",
+)
+PUBLIC_PROXY_MAX_CANDIDATES = int(os.environ.get("PUBLIC_PROXY_MAX_CANDIDATES", "40"))
+
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_BACKUP_BOT_TOKEN = os.environ.get("TELEGRAM_BACKUP_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 TELEGRAM_ENABLED = os.environ.get("TELEGRAM_ENABLED", "false").lower() in (
+    "1",
+    "true",
+    "yes",
+)
+# message = <code> config block per post (tap to copy); file = .txt attachment; both
+TELEGRAM_PUBLISH_MODE = os.environ.get("TELEGRAM_PUBLISH_MODE", "message").lower()
+TELEGRAM_PUBLISH_ALL = os.environ.get("TELEGRAM_PUBLISH_ALL", "false").lower() in (
     "1",
     "true",
     "yes",

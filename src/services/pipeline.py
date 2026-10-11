@@ -1,19 +1,23 @@
 from __future__ import annotations
 
+import json
 import sys
+from pathlib import Path
 
 from src.constants import (
     CONFIGS_FILE,
     CONFIGS_RU_FILE,
     CONFIGS_WORKING_FILE,
+    RESULTS_DIR,
     RUSSIA_PROFILE,
     RUSSIA_SUB_URL,
     SUBSCRIPTION_URLS_FILE,
+    TELEGRAM_ENABLED,
 )
 from src.resources.configs import load_configs, save_config_lines
 from src.resources.subscriptions import load_subscription_urls
 from src.services.fetcher import IGARECK_CONFIG_URLS, fetch_remote_configs, fetch_russia_configs
-from src.services.gateway import find_gateway
+from src.services.vantage import find_russian_vantage
 from src.services.runner import test_configs
 from src.services.telegram import publish_configs
 from src.utils.xray import verify_xray_binary
@@ -75,8 +79,13 @@ async def run_pipeline() -> int:
 
     ru_configs, _ = load_configs(CONFIGS_RU_FILE)
 
-    print("\nPhase 2: Finding Russian gateway...")
-    gateway = await find_gateway(ru_configs)
+    print("\nPhase 2: Establishing Russian network vantage...")
+    try:
+        gateway = await find_russian_vantage(ru_configs)
+    except RuntimeError as err:
+        print(f"FATAL: {err}", file=sys.stderr)
+        return 1
+    print(f"Russian vantage mode: {gateway.vantage_mode} (exit {gateway.exit_ip})")
     try:
         remote_urls = _remote_config_urls()
         print(
@@ -115,6 +124,31 @@ async def run_pipeline() -> int:
     failed = len(results) - healthy
     print(f"\nDone: {healthy} working, {failed} failed, {len(results)} total tested")
     return 1 if healthy == 0 else 0
+
+
+async def run_republish_telegram(*, force_all: bool = False) -> int:
+    """Publish healthy configs from the last test run (results.json) to Telegram."""
+    if not TELEGRAM_ENABLED:
+        print("Set TELEGRAM_ENABLED=true to publish", file=sys.stderr)
+        return 1
+
+    results_path = RESULTS_DIR / "results.json"
+    if not results_path.is_file():
+        print(f"No results found at {results_path}; run the pipeline first", file=sys.stderr)
+        return 1
+    if not CONFIGS_FILE.is_file():
+        print(f"Config file not found: {CONFIGS_FILE}", file=sys.stderr)
+        return 1
+
+    results = json.loads(results_path.read_text(encoding="utf-8"))
+    configs, _ = load_configs(CONFIGS_FILE)
+    from src.resources.configs import url_by_index
+
+    urls = url_by_index(configs)
+    healthy = sum(1 for r in results if r.get("status") == "healthy")
+    print(f"Republishing up to {healthy} healthy config(s) to Telegram...")
+    count = await publish_configs(results, urls, skip_dedupe=force_all)
+    return 0 if count > 0 else 1
 
 
 async def run_test_only() -> int:
