@@ -151,11 +151,8 @@ def _select_for_run(
     return ranked[:limit]
 
 
-def _bilingual_post_header(count: int) -> str:
-    return (
-        f"<b>🔥 Топ-{count} VPN — проверено из России</b>\n"
-        f"<b>🔥 {count} کانفیگ سریع — تست از روسیه</b>"
-    )
+def _post_header(count: int) -> str:
+    return f"<b>🔥 Топ-{count} VPN — проверено из России</b>"
 
 
 def _usage_guide_blockquote() -> str:
@@ -165,22 +162,14 @@ def _usage_guide_blockquote() -> str:
         "1. Нажмите на конфиг ниже и скопируйте его\n"
         "2. Импортируйте в клиент: v2rayNG / Hiddify (Android), "
         "Streisand / V2Box (iOS), Hiddify / v2rayN (ПК)\n"
-        "3. Подключитесь\n\n"
-        "<b>📖 راهنمای اتصال</b>\n"
-        "1. روی بلوک کانفیگ بزنید و آن را کپی کنید\n"
-        "2. در کلاینت ایمپورت کنید: v2rayNG / Hiddify (اندروید)، "
-        "Streisand / V2Box (iOS)، Hiddify / v2rayN (ویندوز)\n"
-        "3. وصل شوید"
+        "3. Подключитесь"
         "</blockquote>"
     )
 
 
-def _bilingual_footer(channel_id: str) -> str:
+def _post_footer(channel_id: str) -> str:
     escaped = html.escape(channel_id)
-    return (
-        f"\n\n🆔 {escaped}\n"
-        f"🇷🇺 Канал | 🇮🇷 کانال"
-    )
+    return f"\n\n🆔 {escaped}"
 
 
 def _format_config_section(row: dict, raw_url: str) -> str:
@@ -190,7 +179,6 @@ def _format_config_section(row: dict, raw_url: str) -> str:
     city = html.escape(row.get("city") or "")
     latency = row.get("latency_ms")
     latency_ru = f"{latency} мс" if latency is not None else "н/д"
-    latency_fa = f"{latency} ms" if latency is not None else "نامشخص"
     place = f"{country} | {city}" if city else country
     escaped_url = html.escape(raw_url)
     if len(escaped_url) > _MAX_CODE_LEN:
@@ -199,8 +187,7 @@ def _format_config_section(row: dict, raw_url: str) -> str:
         block = f"<code>{escaped_url}</code>"
     return (
         f"✅ <b>{name}</b>\n"
-        f"🇷🇺 Страна: {place} | Задержка из РФ: {latency_ru}\n"
-        f"🇮🇷 کشور: {place} | تأخیر از روسیه: {latency_fa}\n\n"
+        f"Страна: {place} | Задержка из РФ: {latency_ru}\n\n"
         f"{block}"
     )
 
@@ -266,8 +253,8 @@ async def _format_combined_post_messages(
     items: list[tuple[dict, str]],
 ) -> list[str]:
     channel_id = await resolve_channel_display_id()
-    footer = _bilingual_footer(channel_id)
-    prefix = f"{_bilingual_post_header(len(items))}\n\n{_usage_guide_blockquote()}"
+    footer = _post_footer(channel_id)
+    prefix = f"{_post_header(len(items))}\n\n{_usage_guide_blockquote()}"
     config_sections = [_format_config_section(row, raw_url) for row, raw_url in items]
     return _pack_telegram_messages([prefix] + config_sections, footer)
 
