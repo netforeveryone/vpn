@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 
 from src.utils.platform import default_xray_path
@@ -80,7 +81,14 @@ DATA_DIR = Path("data")
 
 CONFIGS_RU_FILE = DATA_DIR / "configs_ru.txt"
 CONFIGS_WORKING_FILE = DATA_DIR / "configs_working.txt"
-SENT_CONFIGS_FILE = DATA_DIR / "sent_configs.json"
+def sent_configs_file(chat_id: str | None = None) -> Path:
+    """Per-chat dedupe store so switching TELEGRAM_CHAT_ID can republish."""
+    raw = (chat_id or TELEGRAM_CHAT_ID or "default").strip()
+    safe = re.sub(r"[^\w.-]+", "_", raw.lstrip("@")) or "default"
+    return DATA_DIR / f"sent_configs_{safe}.json"
+
+
+SENT_CONFIGS_FILE = DATA_DIR / "sent_configs.json"  # legacy default path
 SUBSCRIPTION_URLS_FILE = ROOT_DIR / "resources" / "subscription_urls.txt"
 
 SOCKS_PROXY = "socks5h://127.0.0.1"
@@ -101,3 +109,5 @@ TELEGRAM_ENABLED = os.environ.get("TELEGRAM_ENABLED", "false").lower() in (
     "true",
     "yes",
 )
+# file = one .txt attachment (easy copy/import); message = plain text per config; both
+TELEGRAM_PUBLISH_MODE = os.environ.get("TELEGRAM_PUBLISH_MODE", "file").lower()
