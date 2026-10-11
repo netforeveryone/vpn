@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import html
 from datetime import datetime, timezone
 
 import httpx
@@ -14,6 +15,9 @@ from src.constants import (
     sent_configs_file,
 )
 from src.resources.dedupe import config_fingerprint, load_sent, save_sent
+
+# Telegram message limit; keep headroom for HTML wrapper around the config URL.
+_MAX_CODE_LEN = 3800
 
 
 def is_publishable(row: dict) -> bool:
@@ -51,33 +55,27 @@ async def verify_telegram_bots() -> None:
             print(f"Telegram {label} bot verified: @{username}")
 
 
-def _format_plain_message(row: dict, raw_url: str) -> str:
-    """Plain text (no HTML): URL on its own last line for tap-and-copy in Telegram."""
-    name = row.get("vless_name") or "config"
-    country = row.get("country") or "Unknown"
-    city = row.get("city") or ""
+def _format_config_block_message(row: dict, raw_url: str) -> str:
+    """
+    Header outside the block; full proxy URL alone inside <code> for Telegram tap-to-copy.
+    """
+    name = html.escape(row.get("vless_name") or "config")
+    country = html.escape(row.get("country") or "Unknown")
+    city = html.escape(row.get("city") or "")
     latency = row.get("latency_ms")
     latency_text = f"{latency}ms" if latency is not None else "n/a"
     location = f"{country} | {city}" if city else country
-    return f"✅ {name}\n{location} | {latency_text}\n\n{raw_url}"
+    escaped_url = html.escape(raw_url)
+    if len(escaped_url) > _MAX_CODE_LEN:
+        block = f"<pre>{escaped_url}</pre>"
+    else:
+        block = f"<code>{escaped_url}</code>"
+    return f"✅ <b>{name}</b>\n{location} | {latency_text}\n\n{block}"
 
 
 def _format_bundle_file(rows: list[tuple[dict, str]]) -> str:
-    """One proxy URL per line — import-friendly for v2rayNG / Hiddify / etc."""
-    lines: list[str] = []
-    for row, raw_url in rows:
-        name = (row.get("vless_name") or "config").replace("\n", " ")
-        country = row.get("country") or ""
-        latency = row.get("latency_ms")
-        meta = f"# {name}"
-        if country:
-            meta += f" | {country}"
-        if latency is not None:
-            meta += f" | {latency}ms"
-        lines.append(meta)
-        lines.append(raw_url)
-        lines.append("")
-    return "\n".join(lines).strip() + "\n"
+    """One proxy URL per line (no comments) for import from a file attachment."""
+    return "\n".join(raw_url for _, raw_url in rows) + "\n"
 
 
 def _chat_not_found_hint(response_text: str) -> str | None:
@@ -121,15 +119,15 @@ async def _api_post(
     raise RuntimeError(f"Telegram HTTP error: {last_error}")
 
 
-async def _send_message(text: str) -> None:
-    await _api_post(
-        "sendMessage",
-        json_body={
-            "chat_id": TELEGRAM_CHAT_ID,
-            "text": text,
-            "disable_web_page_preview": True,
-        },
-    )
+async def _send_message(text: str, *, html_mode: bool = False) -> None:
+    payload: dict = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": text,
+        "disable_web_page_preview": True,
+    }
+    if html_mode:
+        payload["parse_mode"] = "HTML"
+    await _api_post("sendMessage", json_body=payload)
 
 
 async def _send_document(filename: str, content: str, caption: str) -> None:
@@ -181,7 +179,6 @@ async def publish_configs(
         print("No new configs to publish (already sent to this chat)")
         return 0
 
-    published = 0
     mode = TELEGRAM_PUBLISH_MODE
 
     try:
@@ -189,20 +186,16 @@ async def publish_configs(
             stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d")
             body = _format_bundle_file(to_send)
             filename = f"vpn-working-{stamp}.txt"
-            caption = (
-                f"{len(to_send)} working config(s) from Russia.\n"
-                "Open the file → copy one line or import all into your VPN app."
-            )
+            caption = f"{len(to_send)} working config(s) — one URL per line in the file."
             await _send_document(filename, body, caption)
-            published = len(to_send)
 
         if mode in ("message", "both"):
             for row, raw_url in to_send:
-                await _send_message(_format_plain_message(row, raw_url))
-                published += 1 if mode == "message" else 0
+                await _send_message(
+                    _format_config_block_message(row, raw_url),
+                    html_mode=True,
+                )
                 await asyncio.sleep(0.15)
-            if mode == "both":
-                published = len(to_send)
     except Exception as err:
         print(f"Telegram publish failed: {err}")
         return 0
