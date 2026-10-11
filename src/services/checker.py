@@ -140,12 +140,19 @@ async def _measure_latency_from_russia(
             )
         except Exception:
             pass
-    return await measure_ru_tcp_latency(
+    first = await measure_ru_tcp_latency(
         gateway_port,
         config.server,
         config.server_port,
         timeout=timeout,
     )
+    second = await measure_ru_tcp_latency(
+        gateway_port,
+        config.server,
+        config.server_port,
+        timeout=timeout,
+    )
+    return max(first, second)
 
 
 async def check_config(
