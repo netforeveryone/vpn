@@ -107,7 +107,8 @@ resources/
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `XRAY_PATH` | `bin/xray` | Path to Xray binary (relative paths resolve from repo root) |
-| `CONCURRENCY` | `10` | Parallel tests |
+| `CONCURRENCY` | `15` | Parallel tests (`configs.txt` / local) |
+| `GATEWAY_CONCURRENCY` | `15` | Parallel tests in `run` through the Russian gateway |
 | `CONFIGS_FILE` | `configs.txt` | Final config list to test |
 | `RUSSIA_PROFILE` | `v2nodes` | Gateway profile (`v2nodes`, `black_vless`, `black_vless_mobile`, `white_vless_mobile`) |
 | `RUSSIA_SUB_URL` | v2nodes subscription URL | Override with a custom subscription URL |
@@ -117,8 +118,8 @@ resources/
 | `TELEGRAM_CHAT_ID` | — | Channel (`@vpnf24`) or numeric chat id |
 | `TELEGRAM_BACKUP_BOT_TOKEN` | — | Optional fallback bot if primary send fails |
 | `TELEGRAM_PUBLISH_MODE` | `message` | `message` = `<code>` config block per post (tap to copy), `file`, or `both` |
-| `TELEGRAM_MAX_LATENCY_MS` | `1000` | Only save/post configs with Russian-gateway TCP ping below this (ms) |
-| `LATENCY_WARMUP` | `true` | Discard first RU TCP probe so posted ping is steady-state |
+| `TELEGRAM_MAX_LATENCY_MS` | `1000` | Only save/post configs with Russia-routed HTTP latency below this (ms) |
+| `LATENCY_WARMUP` | `true` | Discard first HTTP check through the proxy before recording latency |
 | `STARTUP_TIMEOUT_MS` | `10000` | Xray SOCKS startup timeout |
 | `REQUEST_TIMEOUT_MS` | `15000` | HTTP check timeout |
 | `FETCH_TIMEOUT_MS` | `60000` | Subscription fetch timeout |

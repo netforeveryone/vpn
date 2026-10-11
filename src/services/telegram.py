@@ -82,7 +82,7 @@ def _format_config_block_message(row: dict, raw_url: str) -> str:
         block = f"<pre>{escaped_url}</pre>"
     else:
         block = f"<code>{escaped_url}</code>"
-    ping_label = "RU ping" if row.get("russia_routed") else "ping"
+    ping_label = "RU latency" if row.get("russia_routed") else "ping"
     return (
         f"✅ <b>{name}</b>\n{location} | {ping_label} {latency_text}\n\n{block}"
     )

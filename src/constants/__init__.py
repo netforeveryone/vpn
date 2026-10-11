@@ -71,8 +71,8 @@ FETCH_MAX_RETRIES = int(os.environ.get("FETCH_MAX_RETRIES", "3"))
 FETCH_RETRY_DELAY = int(os.environ.get("FETCH_RETRY_DELAY_MS", "2000")) / 1000
 
 MAX_RETRIES = int(os.environ.get("MAX_RETRIES", "1"))
-CONCURRENCY = int(os.environ.get("CONCURRENCY", "10"))
-GATEWAY_CONCURRENCY = int(os.environ.get("GATEWAY_CONCURRENCY", "3"))
+CONCURRENCY = int(os.environ.get("CONCURRENCY", "15"))
+GATEWAY_CONCURRENCY = int(os.environ.get("GATEWAY_CONCURRENCY", "15"))
 
 XRAY_PATH = _resolve_xray_path()
 CONFIGS_FILE = Path(os.environ.get("CONFIGS_FILE", "configs.txt"))
