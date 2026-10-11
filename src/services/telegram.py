@@ -12,6 +12,7 @@ from src.constants import (
     TELEGRAM_BOT_TOKEN,
     TELEGRAM_CHAT_ID,
     TELEGRAM_ENABLED,
+    TELEGRAM_MAX_LATENCY_MS,
     TELEGRAM_PUBLISH_ALL,
     TELEGRAM_PUBLISH_MODE,
     TELEGRAM_SEND_DELAY,
@@ -24,7 +25,13 @@ _MAX_CODE_LEN = 3800
 
 
 def is_publishable(row: dict) -> bool:
-    return row.get("status") == "healthy"
+    """Healthy configs with measured end-to-end latency below the Telegram cap."""
+    if row.get("status") != "healthy":
+        return False
+    latency = row.get("latency_ms")
+    if latency is None:
+        return False
+    return int(latency) < TELEGRAM_MAX_LATENCY_MS
 
 
 def _bot_tokens() -> list[tuple[str, str]]:
@@ -196,8 +203,21 @@ async def publish_configs(
         return 0
 
     publishable = [row for row in results if is_publishable(row)]
+    slow_healthy = [
+        row
+        for row in results
+        if row.get("status") == "healthy" and not is_publishable(row)
+    ]
+    if slow_healthy:
+        print(
+            f"Skipping {len(slow_healthy)} healthy config(s) with latency "
+            f">= {TELEGRAM_MAX_LATENCY_MS}ms (not posted)"
+        )
     if not publishable:
-        print("No healthy configs that work in Russia to publish")
+        print(
+            f"No configs under {TELEGRAM_MAX_LATENCY_MS}ms latency to publish "
+            "(from Russia vantage)"
+        )
         return 0
 
     ignore_dedupe = skip_dedupe if skip_dedupe is not None else TELEGRAM_PUBLISH_ALL

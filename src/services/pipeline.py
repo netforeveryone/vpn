@@ -18,7 +18,7 @@ from src.resources.subscriptions import load_subscription_urls
 from src.services.fetcher import IGARECK_CONFIG_URLS, fetch_remote_configs, fetch_russia_configs
 from src.services.vantage import find_russian_vantage
 from src.services.runner import test_configs
-from src.services.telegram import publish_configs
+from src.services.telegram import is_publishable, publish_configs
 from src.utils.xray import verify_xray_binary
 
 
@@ -106,12 +106,13 @@ async def run_pipeline() -> int:
         healthy_urls = [
             urls[row["index"]]
             for row in results
-            if row["status"] == "healthy" and row["index"] in urls
+            if is_publishable(row) and row["index"] in urls
         ]
         save_config_lines(healthy_urls, CONFIGS_WORKING_FILE)
+        all_healthy = sum(1 for r in results if r.get("status") == "healthy")
         print(
-            f"Saved {len(healthy_urls)} configs that work in Russia "
-            f"to {CONFIGS_WORKING_FILE}"
+            f"Saved {len(healthy_urls)} configs under latency cap to {CONFIGS_WORKING_FILE} "
+            f"({all_healthy} healthy total)"
         )
 
         print("\nPhase 5: Publishing configs that work in Russia...")
