@@ -25,8 +25,10 @@ _MAX_CODE_LEN = 3800
 
 
 def is_publishable(row: dict) -> bool:
-    """Healthy configs with measured end-to-end latency below the Telegram cap."""
+    """Healthy configs with Russia-gateway TCP latency below the Telegram cap."""
     if row.get("status") != "healthy":
+        return False
+    if not row.get("russia_routed"):
         return False
     latency = row.get("latency_ms")
     if latency is None:
@@ -80,7 +82,10 @@ def _format_config_block_message(row: dict, raw_url: str) -> str:
         block = f"<pre>{escaped_url}</pre>"
     else:
         block = f"<code>{escaped_url}</code>"
-    return f"✅ <b>{name}</b>\n{location} | {latency_text}\n\n{block}"
+    ping_label = "RU ping" if row.get("russia_routed") else "ping"
+    return (
+        f"✅ <b>{name}</b>\n{location} | {ping_label} {latency_text}\n\n{block}"
+    )
 
 
 def _format_bundle_file(rows: list[tuple[dict, str]]) -> str:
@@ -210,7 +215,7 @@ async def publish_configs(
     ]
     if slow_healthy:
         print(
-            f"Skipping {len(slow_healthy)} healthy config(s) with latency "
+            f"Skipping {len(slow_healthy)} healthy config(s) with RU TCP ping "
             f">= {TELEGRAM_MAX_LATENCY_MS}ms (not posted)"
         )
     if not publishable:

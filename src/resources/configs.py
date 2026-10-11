@@ -24,6 +24,7 @@ CSV_HEADERS = [
     "isp",
     "asn",
     "latency_ms",
+    "russia_routed",
     "error",
     "tested_at",
 ]
@@ -44,6 +45,7 @@ def failed_row(index: int, error: str) -> dict:
         "isp": "",
         "asn": "",
         "latency_ms": None,
+        "russia_routed": False,
         "error": error,
         "tested_at": datetime.now(timezone.utc).isoformat(),
     }

@@ -52,9 +52,14 @@ async def run_checks(
 
             if row["status"] == "healthy":
                 healthy += 1
+                ping = (
+                    f"RU {row['latency_ms']}ms"
+                    if row.get("russia_routed")
+                    else f"{row['latency_ms']}ms"
+                )
                 print(
                     f"[{config.index}/{total}] HEALTHY {row['exit_ip']} | "
-                    f"{row['country']} | {row['city']} | {row['latency_ms']}ms"
+                    f"{row['country']} | {row['city']} | {ping}"
                 )
             else:
                 failed += 1

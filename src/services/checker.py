@@ -20,6 +20,7 @@ from src.constants import (
     REQUEST_TIMEOUT,
     SOCKS_PROXY,
 )
+from src.services.ru_latency import measure_ru_tcp_latency
 from src.utils.proxy import ProxyConfig, build_xray_config
 from src.utils.xray import start_xray, stop_xray
 
@@ -41,6 +42,7 @@ def result_row(config: ProxyConfig, **fields) -> dict:
         "isp": "",
         "asn": "",
         "latency_ms": None,
+        "russia_routed": False,
         "error": "",
         "tested_at": "",
     }
@@ -121,6 +123,31 @@ async def lookup_geo(ip: str) -> dict[str, str]:
     }
 
 
+async def _measure_latency_from_russia(
+    gateway_port: int,
+    config: ProxyConfig,
+    *,
+    timeout: float,
+) -> int:
+    """TCP RTT from Russian gateway egress to the config server host:port."""
+    if LATENCY_WARMUP:
+        try:
+            await measure_ru_tcp_latency(
+                gateway_port,
+                config.server,
+                config.server_port,
+                timeout=timeout,
+            )
+        except Exception:
+            pass
+    return await measure_ru_tcp_latency(
+        gateway_port,
+        config.server,
+        config.server_port,
+        timeout=timeout,
+    )
+
+
 async def check_config(
     config: ProxyConfig,
     shutdown: asyncio.Event | None = None,
@@ -136,19 +163,32 @@ async def check_config(
         socks_port = None
         session = None
         request_timeout = GATEWAY_REQUEST_TIMEOUT if gateway_port else REQUEST_TIMEOUT
+        latency_ms: int | None = None
+        russia_routed = gateway_port is not None
+
         try:
+            if gateway_port is not None:
+                latency_ms = await _measure_latency_from_russia(
+                    gateway_port,
+                    config,
+                    timeout=request_timeout,
+                )
+
             socks_port = allocate_port()
             session = await start_xray(
                 build_xray_config(config, socks_port, gateway_port=gateway_port),
                 socks_port,
                 shutdown,
             )
-            if LATENCY_WARMUP:
-                await fetch_exit_ip(socks_port, timeout=request_timeout)
-            ip, latency_ms = await fetch_exit_ip(
-                socks_port,
-                timeout=request_timeout,
-            )
+            ip, _ = await fetch_exit_ip(socks_port, timeout=request_timeout)
+
+            if gateway_port is None:
+                if LATENCY_WARMUP:
+                    await fetch_exit_ip(socks_port, timeout=request_timeout)
+                ip, latency_ms = await fetch_exit_ip(
+                    socks_port,
+                    timeout=request_timeout,
+                )
 
             geo = {}
             try:
@@ -161,6 +201,7 @@ async def check_config(
                 status="healthy",
                 exit_ip=ip,
                 latency_ms=latency_ms,
+                russia_routed=russia_routed,
                 tested_at=_now(),
                 **geo,
             )
