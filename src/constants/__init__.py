@@ -117,7 +117,7 @@ TELEGRAM_PUBLISH_ALL = os.environ.get("TELEGRAM_PUBLISH_ALL", "false").lower() i
     "yes",
 )
 TELEGRAM_SEND_DELAY = int(os.environ.get("TELEGRAM_SEND_DELAY_MS", "1200")) / 1000
-TELEGRAM_MAX_LATENCY_MS = int(os.environ.get("TELEGRAM_MAX_LATENCY_MS", "2000"))
+TELEGRAM_MAX_LATENCY_MS = int(os.environ.get("TELEGRAM_MAX_LATENCY_MS", "1000"))
 
 LATENCY_WARMUP = os.environ.get("LATENCY_WARMUP", "true").lower() in (
     "1",
