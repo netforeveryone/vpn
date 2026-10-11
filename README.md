@@ -117,6 +117,8 @@ resources/
 | `TELEGRAM_CHAT_ID` | — | Channel (`@vpnf24`) or numeric chat id |
 | `TELEGRAM_BACKUP_BOT_TOKEN` | — | Optional fallback bot if primary send fails |
 | `TELEGRAM_PUBLISH_MODE` | `message` | `message` = `<code>` config block per post (tap to copy), `file`, or `both` |
+| `TELEGRAM_MAX_LATENCY_MS` | `2000` | Only save/post configs faster than this (warmup + timed ipify check via proxy) |
+| `LATENCY_WARMUP` | `true` | Discard first HTTP check so posted latency is steady-state |
 | `STARTUP_TIMEOUT_MS` | `10000` | Xray SOCKS startup timeout |
 | `REQUEST_TIMEOUT_MS` | `15000` | HTTP check timeout |
 | `FETCH_TIMEOUT_MS` | `60000` | Subscription fetch timeout |
