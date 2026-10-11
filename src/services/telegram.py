@@ -7,6 +7,7 @@ import httpx
 
 from src.constants import (
     SENT_CONFIGS_FILE,
+    TELEGRAM_BACKUP_BOT_TOKEN,
     TELEGRAM_BOT_TOKEN,
     TELEGRAM_CHAT_ID,
     TELEGRAM_ENABLED,
@@ -16,6 +17,37 @@ from src.resources.dedupe import config_fingerprint, load_sent, save_sent
 
 def is_publishable(row: dict) -> bool:
     return row.get("status") == "healthy"
+
+
+def _bot_tokens() -> list[tuple[str, str]]:
+    tokens: list[tuple[str, str]] = []
+    if TELEGRAM_BOT_TOKEN:
+        tokens.append(("primary", TELEGRAM_BOT_TOKEN))
+    if TELEGRAM_BACKUP_BOT_TOKEN and TELEGRAM_BACKUP_BOT_TOKEN != TELEGRAM_BOT_TOKEN:
+        tokens.append(("backup", TELEGRAM_BACKUP_BOT_TOKEN))
+    return tokens
+
+
+async def verify_telegram_bots() -> None:
+    """Call getMe for each configured bot token (primary and backup)."""
+    tokens = _bot_tokens()
+    if not tokens:
+        print("Telegram: no bot tokens configured (skipping getMe)")
+        return
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        for label, token in tokens:
+            url = f"https://api.telegram.org/bot{token}/getMe"
+            response = await client.get(url)
+            if response.status_code < 200 or response.status_code >= 300:
+                raise RuntimeError(
+                    f"Telegram getMe failed for {label} bot: HTTP {response.status_code}"
+                )
+            data = response.json()
+            if not data.get("ok"):
+                raise RuntimeError(f"Telegram getMe failed for {label} bot: {data}")
+            username = data.get("result", {}).get("username", "?")
+            print(f"Telegram {label} bot verified: @{username}")
 
 
 def _format_message(row: dict, raw_url: str) -> str:
@@ -32,20 +64,45 @@ def _format_message(row: dict, raw_url: str) -> str:
     )
 
 
-async def _send_message(text: str) -> None:
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    async with httpx.AsyncClient(timeout=30) as client:
-        response = await client.post(
-            url,
-            json={
-                "chat_id": TELEGRAM_CHAT_ID,
-                "text": text,
-                "parse_mode": "HTML",
-                "disable_web_page_preview": True,
-            },
+def _chat_not_found_hint(response_text: str) -> str | None:
+    lowered = response_text.lower()
+    if "chat not found" in lowered or "bot can't initiate" in lowered:
+        return (
+            "Telegram could not deliver to this chat. "
+            "Open the bot in Telegram and press Start, or use a channel ID where the bot is admin."
         )
-    if response.status_code < 200 or response.status_code >= 300:
-        raise RuntimeError(f"Telegram HTTP {response.status_code}: {response.text}")
+    return None
+
+
+async def _send_message(text: str) -> None:
+    tokens = _bot_tokens()
+    if not tokens:
+        raise RuntimeError("No Telegram bot token configured")
+
+    last_error = ""
+    async with httpx.AsyncClient(timeout=30) as client:
+        for label, token in tokens:
+            url = f"https://api.telegram.org/bot{token}/sendMessage"
+            response = await client.post(
+                url,
+                json={
+                    "chat_id": TELEGRAM_CHAT_ID,
+                    "text": text,
+                    "parse_mode": "HTML",
+                    "disable_web_page_preview": True,
+                },
+            )
+            if 200 <= response.status_code < 300:
+                if label != "primary":
+                    print(f"Telegram message sent via {label} bot")
+                return
+            last_error = response.text
+            hint = _chat_not_found_hint(response.text)
+            if hint:
+                raise RuntimeError(f"{hint} (HTTP {response.status_code})")
+            print(f"Telegram send failed with {label} bot: HTTP {response.status_code}")
+
+    raise RuntimeError(f"Telegram HTTP error: {last_error}")
 
 
 async def publish_configs(
@@ -54,8 +111,17 @@ async def publish_configs(
 ) -> int:
     if not TELEGRAM_ENABLED:
         return 0
-    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
-        print("Telegram enabled but TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is missing")
+    if not TELEGRAM_CHAT_ID:
+        print("Telegram enabled but TELEGRAM_CHAT_ID is missing")
+        return 0
+    if not _bot_tokens():
+        print("Telegram enabled but TELEGRAM_BOT_TOKEN is missing")
+        return 0
+
+    try:
+        await verify_telegram_bots()
+    except Exception as err:
+        print(f"Telegram bot verification failed: {err}")
         return 0
 
     publishable = [row for row in results if is_publishable(row)]

@@ -86,7 +86,15 @@ SUBSCRIPTION_URLS_FILE = ROOT_DIR / "resources" / "subscription_urls.txt"
 SOCKS_PROXY = "socks5h://127.0.0.1"
 RUSSIA_COUNTRY_CODE = "RU"
 
+PUBLIC_PROXY_LIST_URL = os.environ.get(
+    "PUBLIC_PROXY_LIST_URL",
+    "https://api.proxyscrape.com/v2/?request=displayproxies"
+    "&protocol=socks5&country=ru&timeout=10000",
+)
+PUBLIC_PROXY_MAX_CANDIDATES = int(os.environ.get("PUBLIC_PROXY_MAX_CANDIDATES", "40"))
+
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_BACKUP_BOT_TOKEN = os.environ.get("TELEGRAM_BACKUP_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 TELEGRAM_ENABLED = os.environ.get("TELEGRAM_ENABLED", "false").lower() in (
     "1",
