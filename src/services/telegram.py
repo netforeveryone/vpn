@@ -151,21 +151,58 @@ def _select_for_run(
     return ranked[:limit]
 
 
+def _bilingual_post_header(count: int) -> str:
+    return (
+        f"<b>🔥 Топ-{count} VPN — проверено из России</b>\n"
+        f"<b>🔥 {count} کانفیگ سریع — تست از روسیه</b>"
+    )
+
+
+def _usage_guide_blockquote() -> str:
+    return (
+        '<blockquote expandable>'
+        "<b>📖 Как подключить</b>\n"
+        "1. Нажмите на конфиг ниже и скопируйте его\n"
+        "2. Импортируйте в клиент: v2rayNG / Hiddify (Android), "
+        "Streisand / V2Box (iOS), Hiddify / v2rayN (ПК)\n"
+        "3. Подключитесь\n\n"
+        "<b>📖 راهنمای اتصال</b>\n"
+        "1. روی بلوک کانفیگ بزنید و آن را کپی کنید\n"
+        "2. در کلاینت ایمپورت کنید: v2rayNG / Hiddify (اندروید)، "
+        "Streisand / V2Box (iOS)، Hiddify / v2rayN (ویندوز)\n"
+        "3. وصل شوید"
+        "</blockquote>"
+    )
+
+
+def _bilingual_footer(channel_id: str) -> str:
+    escaped = html.escape(channel_id)
+    return (
+        f"\n\n🆔 {escaped}\n"
+        f"🇷🇺 Канал | 🇮🇷 کانال"
+    )
+
+
 def _format_config_section(row: dict, raw_url: str) -> str:
-    """One config: header lines + tap-to-copy code block (no channel footer)."""
+    """One config: bilingual labels + tap-to-copy <code> block only."""
     name = html.escape(row.get("vless_name") or "config")
     country = html.escape(row.get("country") or "Unknown")
     city = html.escape(row.get("city") or "")
     latency = row.get("latency_ms")
-    latency_text = f"{latency}ms" if latency is not None else "n/a"
-    location = f"{country} | {city}" if city else country
+    latency_ru = f"{latency} мс" if latency is not None else "н/д"
+    latency_fa = f"{latency} ms" if latency is not None else "نامشخص"
+    place = f"{country} | {city}" if city else country
     escaped_url = html.escape(raw_url)
     if len(escaped_url) > _MAX_CODE_LEN:
         block = f"<pre>{escaped_url}</pre>"
     else:
         block = f"<code>{escaped_url}</code>"
-    ping_label = "RU latency" if row.get("russia_routed") else "ping"
-    return f"✅ <b>{name}</b>\n{location} | {ping_label} {latency_text}\n\n{block}"
+    return (
+        f"✅ <b>{name}</b>\n"
+        f"🇷🇺 Страна: {place} | Задержка из РФ: {latency_ru}\n"
+        f"🇮🇷 کشور: {place} | تأخیر از روسیه: {latency_fa}\n\n"
+        f"{block}"
+    )
 
 
 def _pack_telegram_messages(sections: list[str], footer: str) -> list[str]:
@@ -228,17 +265,18 @@ def _pack_telegram_messages(sections: list[str], footer: str) -> list[str]:
 async def _format_combined_post_messages(
     items: list[tuple[dict, str]],
 ) -> list[str]:
-    channel_id = html.escape(await resolve_channel_display_id())
-    footer = f"\n\n🆔 {channel_id}"
-    sections = [_format_config_section(row, raw_url) for row, raw_url in items]
-    return _pack_telegram_messages(sections, footer)
+    channel_id = await resolve_channel_display_id()
+    footer = _bilingual_footer(channel_id)
+    prefix = f"{_bilingual_post_header(len(items))}\n\n{_usage_guide_blockquote()}"
+    config_sections = [_format_config_section(row, raw_url) for row, raw_url in items]
+    return _pack_telegram_messages([prefix] + config_sections, footer)
 
 
 async def _format_config_block_message(row: dict, raw_url: str) -> str:
-    """Single-config post (tests); same layout as one section + footer."""
-    channel_id = html.escape(await resolve_channel_display_id())
-    footer = f"\n\n🆔 {channel_id}"
-    return _format_config_section(row, raw_url) + footer
+    """Single-config post (tests); same layout as combined message."""
+    channel_id = await resolve_channel_display_id()
+    messages = await _format_combined_post_messages([(row, raw_url)])
+    return messages[0] if messages else ""
 
 
 def _format_bundle_file(rows: list[tuple[dict, str]]) -> str:
