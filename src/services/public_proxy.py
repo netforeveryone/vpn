@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import re
 from dataclasses import dataclass
 
@@ -9,6 +10,7 @@ from src.constants import (
     IP_CHECK_URL,
     PUBLIC_PROXY_LIST_URL,
     PUBLIC_PROXY_MAX_CANDIDATES,
+    PUBLIC_PROXY_VERIFY_TIMEOUT,
     REQUEST_TIMEOUT,
     RUSSIA_COUNTRY_CODE,
 )
@@ -59,8 +61,7 @@ def fetch_public_ru_socks_candidates() -> list[SocksEndpoint]:
     return endpoints[:PUBLIC_PROXY_MAX_CANDIDATES]
 
 
-async def verify_socks_exit_in_russia(host: str, port: int) -> str:
-    """Return exit IP if the SOCKS proxy works and GeoIP country is Russia."""
+async def _verify_socks_exit_in_russia_impl(host: str, port: int) -> str:
     proxy = f"socks5h://{host}:{port}"
     async with httpx.AsyncClient(proxy=proxy, timeout=REQUEST_TIMEOUT) as client:
         response = await client.get(IP_CHECK_URL)
@@ -75,3 +76,14 @@ async def verify_socks_exit_in_russia(host: str, port: int) -> str:
             f"Proxy exit not in Russia (got {geo.get('country_code') or 'unknown'})"
         )
     return ip
+
+
+async def verify_socks_exit_in_russia(host: str, port: int) -> str:
+    """Return exit IP if the SOCKS proxy works and GeoIP country is Russia."""
+    try:
+        return await asyncio.wait_for(
+            _verify_socks_exit_in_russia_impl(host, port),
+            timeout=PUBLIC_PROXY_VERIFY_TIMEOUT,
+        )
+    except TimeoutError:
+        raise RuntimeError("SOCKS verify timeout") from None

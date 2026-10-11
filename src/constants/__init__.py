@@ -100,6 +100,9 @@ PUBLIC_PROXY_LIST_URL = os.environ.get(
     "&protocol=socks5&country=ru&timeout=10000",
 )
 PUBLIC_PROXY_MAX_CANDIDATES = int(os.environ.get("PUBLIC_PROXY_MAX_CANDIDATES", "40"))
+PUBLIC_PROXY_VERIFY_TIMEOUT = int(
+    os.environ.get("PUBLIC_PROXY_VERIFY_TIMEOUT_MS", "8000")
+) / 1000
 
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_BACKUP_BOT_TOKEN = os.environ.get("TELEGRAM_BACKUP_BOT_TOKEN", "")
