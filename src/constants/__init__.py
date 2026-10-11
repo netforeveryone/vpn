@@ -116,3 +116,4 @@ TELEGRAM_PUBLISH_ALL = os.environ.get("TELEGRAM_PUBLISH_ALL", "false").lower() i
     "true",
     "yes",
 )
+TELEGRAM_SEND_DELAY = int(os.environ.get("TELEGRAM_SEND_DELAY_MS", "1200")) / 1000
