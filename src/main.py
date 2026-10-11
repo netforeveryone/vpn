@@ -5,7 +5,13 @@ import asyncio
 import sys
 
 from src.constants import RESULTS_DIR, RUSSIA_PROFILES
-from src.services.pipeline import run_fetch_ru, run_pipeline, run_test_only, run_test_ru
+from src.services.pipeline import (
+    run_fetch_ru,
+    run_pipeline,
+    run_republish_telegram,
+    run_test_only,
+    run_test_ru,
+)
 from src.utils.log import setup_run_log, teardown_run_log
 
 
@@ -20,6 +26,16 @@ def run(argv: list[str] | None = None) -> None:
         help="Full pipeline: fetch RU gateway → test GitHub configs from Russia → Telegram",
     )
     subparsers.add_parser("test", help="Test configs from configs.txt only")
+
+    republish = subparsers.add_parser(
+        "republish",
+        help="Post healthy configs from results/results.json to Telegram (code blocks)",
+    )
+    republish.add_argument(
+        "--all",
+        action="store_true",
+        help="Ignore dedupe and post every healthy config again",
+    )
 
     fetch_ru = subparsers.add_parser(
         "fetch-ru",
@@ -54,6 +70,8 @@ def run(argv: list[str] | None = None) -> None:
             raise SystemExit(asyncio.run(run_fetch_ru(profile=args.profile)))
         if command == "test-ru":
             raise SystemExit(asyncio.run(run_test_ru(profile=args.profile)))
+        if command == "republish":
+            raise SystemExit(asyncio.run(run_republish_telegram(force_all=args.all)))
         raise SystemExit(asyncio.run(run_pipeline()))
     except SystemExit:
         raise
