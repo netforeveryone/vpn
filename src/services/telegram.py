@@ -24,6 +24,7 @@ from src.resources.dedupe import config_fingerprint, load_sent, save_sent
 
 # Telegram message limit; keep headroom for HTML wrapper around the config URL.
 _MAX_CODE_LEN = 3800
+_TELEGRAM_MAX_MESSAGE_LEN = 4096
 
 _channel_display_cache: str | None = None
 
@@ -150,10 +151,8 @@ def _select_for_run(
     return ranked[:limit]
 
 
-async def _format_config_block_message(row: dict, raw_url: str) -> str:
-    """
-    Header outside the block; full proxy URL alone inside <code> for Telegram tap-to-copy.
-    """
+def _format_config_section(row: dict, raw_url: str) -> str:
+    """One config: header lines + tap-to-copy code block (no channel footer)."""
     name = html.escape(row.get("vless_name") or "config")
     country = html.escape(row.get("country") or "Unknown")
     city = html.escape(row.get("city") or "")
@@ -166,13 +165,80 @@ async def _format_config_block_message(row: dict, raw_url: str) -> str:
     else:
         block = f"<code>{escaped_url}</code>"
     ping_label = "RU latency" if row.get("russia_routed") else "ping"
+    return f"✅ <b>{name}</b>\n{location} | {ping_label} {latency_text}\n\n{block}"
+
+
+def _pack_telegram_messages(sections: list[str], footer: str) -> list[str]:
+    """Join sections into ≤4096-char messages; footer only on the last chunk."""
+    if not sections:
+        return []
+    combined = "\n\n".join(sections) + footer
+    if len(combined) <= _TELEGRAM_MAX_MESSAGE_LEN:
+        return [combined]
+
+    messages: list[str] = []
+    batch: list[str] = []
+
+    def flush_batch(with_footer: bool = False) -> None:
+        nonlocal batch
+        if not batch:
+            return
+        body = "\n\n".join(batch)
+        if with_footer:
+            body += footer
+        messages.append(body)
+        batch = []
+
+    for section in sections:
+        if not batch:
+            if len(section) + len(footer) > _TELEGRAM_MAX_MESSAGE_LEN:
+                messages.append(section)
+                continue
+            batch = [section]
+            continue
+
+        candidate = "\n\n".join(batch + [section])
+        if len(candidate) <= _TELEGRAM_MAX_MESSAGE_LEN:
+            batch.append(section)
+        else:
+            flush_batch(with_footer=False)
+            batch = [section]
+
+    if batch:
+        body = "\n\n".join(batch)
+        if len(body) + len(footer) <= _TELEGRAM_MAX_MESSAGE_LEN:
+            messages.append(body + footer)
+        else:
+            while batch:
+                if len(batch) == 1:
+                    messages.append(batch[0] + footer)
+                    batch = []
+                    break
+                flush_batch(with_footer=False)
+            if batch:
+                messages.append("\n\n".join(batch) + footer)
+
+    if messages and footer not in messages[-1]:
+        if len(messages[-1]) + len(footer) <= _TELEGRAM_MAX_MESSAGE_LEN:
+            messages[-1] += footer
+
+    return messages
+
+
+async def _format_combined_post_messages(
+    items: list[tuple[dict, str]],
+) -> list[str]:
     channel_id = html.escape(await resolve_channel_display_id())
-    return (
-        f"✅ <b>{name}</b>\n"
-        f"{location} | {ping_label} {latency_text}\n\n"
-        f"{block}\n\n"
-        f"🆔 {channel_id}"
-    )
+    footer = f"\n\n🆔 {channel_id}"
+    sections = [_format_config_section(row, raw_url) for row, raw_url in items]
+    return _pack_telegram_messages(sections, footer)
+
+
+async def _format_config_block_message(row: dict, raw_url: str) -> str:
+    """Single-config post (tests); same layout as one section + footer."""
+    channel_id = html.escape(await resolve_channel_display_id())
+    footer = f"\n\n🆔 {channel_id}"
+    return _format_config_section(row, raw_url) + footer
 
 
 def _format_bundle_file(rows: list[tuple[dict, str]]) -> str:
@@ -343,15 +409,19 @@ async def publish_configs(
             await _send_document(filename, body, caption)
 
         if mode in ("message", "both"):
-            for row, raw_url in to_send:
-                await _send_message(
-                    await _format_config_block_message(row, raw_url),
-                    html_mode=True,
+            post_messages = await _format_combined_post_messages(to_send)
+            if len(post_messages) > 1:
+                print(
+                    f"Telegram: combined post split into {len(post_messages)} message(s) "
+                    f"(4096 char limit)"
                 )
-                sent.add(config_fingerprint(raw_url))
-                save_sent(sent_path, sent)
-                published += 1
+            for text in post_messages:
+                await _send_message(text, html_mode=True)
                 await asyncio.sleep(TELEGRAM_SEND_DELAY)
+            for row, raw_url in to_send:
+                sent.add(config_fingerprint(raw_url))
+                published += 1
+            save_sent(sent_path, sent)
     except Exception as err:
         print(f"Telegram publish failed after {published} post(s): {err}")
         return published

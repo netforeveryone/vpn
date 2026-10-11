@@ -153,7 +153,7 @@ tail -f results/run.log
 2. Add the bot as admin to your channel (for channels)
 3. Set `TELEGRAM_ENABLED=true`, `TELEGRAM_BOT_TOKEN`, and `TELEGRAM_CHAT_ID` in `.env`
 
-Only configs that pass health checks **through the Russian gateway** are saved to `data/configs_working.txt` and published to Telegram. Default publish mode sends one channel post per config: title/location above, full proxy URL inside a **`<code>` block** (Telegram’s tap-to-copy). Already-sent configs are skipped per target chat (`data/sent_configs_<chat>.json`) unless you run `python -m src republish --all`. Default channel: [@vpnf24](https://t.me/vpnf24) (`TELEGRAM_CHAT_ID=@vpnf24`).
+Configs that pass health checks **through the Russian gateway** and are under `TELEGRAM_MAX_LATENCY_MS` are saved to `data/configs_working.txt`. Telegram gets **one combined message** with the top `TELEGRAM_TOP_N` (default 5) fastest configs (each with its own `<code>` block), plus a single footer `🆔 @channel`. Splits into multiple messages only if the post exceeds Telegram’s 4096-character limit. Each daily run reposts the current best set (dedupe does not block top-N). Default channel: [@vpnf24](https://t.me/vpnf24) (`TELEGRAM_CHAT_ID=@vpnf24`).
 
 ## Daily automation (GitHub Actions)
 
