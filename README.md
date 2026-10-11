@@ -47,6 +47,9 @@ python -m src test-ru
 # Full pipeline: v2nodes RU → gateway → fetch GitHub → test from Russia → Telegram
 python -m src run
 
+# Repost all healthy configs from the last run (full <code> blocks) to Telegram
+python -m src republish --all
+
 # Test configs.txt only (skip fetch phases)
 python -m src test
 ```
@@ -145,4 +148,16 @@ tail -f results/run.log
 2. Add the bot as admin to your channel (for channels)
 3. Set `TELEGRAM_ENABLED=true`, `TELEGRAM_BOT_TOKEN`, and `TELEGRAM_CHAT_ID` in `.env`
 
-Only configs that pass health checks **through the Russian gateway** are saved to `data/configs_working.txt` and published to Telegram. Default publish mode sends one channel post per config: title/location above, full proxy URL inside a **`<code>` block** (Telegram’s tap-to-copy). Optional `file` mode attaches a plain `.txt` list. Already-sent configs are skipped per target chat (`data/sent_configs_<chat>.json`). Default channel: [@vpnf24](https://t.me/vpnf24) (`TELEGRAM_CHAT_ID=@vpnf24`).
+Only configs that pass health checks **through the Russian gateway** are saved to `data/configs_working.txt` and published to Telegram. Default publish mode sends one channel post per config: title/location above, full proxy URL inside a **`<code>` block** (Telegram’s tap-to-copy). Already-sent configs are skipped per target chat (`data/sent_configs_<chat>.json`) unless you run `python -m src republish --all`. Default channel: [@vpnf24](https://t.me/vpnf24) (`TELEGRAM_CHAT_ID=@vpnf24`).
+
+## Daily automation (GitHub Actions)
+
+Workflow [`.github/workflows/daily-pipeline.yml`](.github/workflows/daily-pipeline.yml) runs `python -m src run` every day at **06:00 UTC** and on manual **workflow_dispatch**. Add repository secrets:
+
+| Secret | Required | Description |
+|--------|----------|-------------|
+| `TELEGRAM_BOT_TOKEN` | yes | Bot token (@ruvpid1Bot) |
+| `TELEGRAM_BACKUP_BOT_TOKEN` | no | Fallback bot |
+| `TELEGRAM_CHAT_ID` | no | Defaults to `@vpnf24` in CI if unset |
+
+Scheduled workflows only run from the **default branch** (`main`) after the workflow file is merged.
