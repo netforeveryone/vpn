@@ -7,6 +7,7 @@ import sys
 from src.constants import RESULTS_DIR, RUSSIA_PROFILES
 from src.services.pipeline import (
     run_fetch_ru,
+    run_frontier,
     run_pipeline,
     run_republish_telegram,
     run_test_only,
@@ -24,6 +25,10 @@ def run(argv: list[str] | None = None) -> None:
     subparsers.add_parser(
         "run",
         help="Full pipeline: fetch RU gateway → test GitHub configs from Russia → Telegram",
+    )
+    subparsers.add_parser(
+        "publish-frontier",
+        help="Build CN/RU/IR/All subscription files under data/ for Frontier VPN apps",
     )
     subparsers.add_parser("test", help="Test configs from configs.txt only")
 
@@ -72,6 +77,8 @@ def run(argv: list[str] | None = None) -> None:
             raise SystemExit(asyncio.run(run_test_ru(profile=args.profile)))
         if command == "republish":
             raise SystemExit(asyncio.run(run_republish_telegram(force_all=args.all)))
+        if command == "publish-frontier":
+            raise SystemExit(asyncio.run(run_frontier()))
         raise SystemExit(asyncio.run(run_pipeline()))
     except SystemExit:
         raise

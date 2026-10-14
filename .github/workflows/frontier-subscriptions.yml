@@ -1,0 +1,116 @@
+name: Frontier subscriptions
+
+on:
+  schedule:
+    # Every 4 hours
+    - cron: "15 */4 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: frontier-subscriptions
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    outputs:
+      changed: ${{ steps.commit.outputs.changed }}
+    env:
+      XRAY_PATH: bin/xray
+      TELEGRAM_ENABLED: "false"
+      CONCURRENCY: "12"
+      GATEWAY_CONCURRENCY: "10"
+      V2NODES_MAX_PAGES: "3"
+      FRONTIER_GATEWAY_MAX_CONFIGS: "40"
+      FRONTIER_MAX_PER_COUNTRY: "80"
+      LATENCY_WARMUP: "true"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Cache Xray binary
+        id: xray-cache
+        uses: actions/cache@v4
+        with:
+          path: bin/xray
+          key: xray-linux-64-${{ hashFiles('scripts/install-xray.sh') }}
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -e .
+
+      - name: Install Xray
+        if: steps.xray-cache.outputs.cache-hit != 'true'
+        run: bash scripts/install-xray.sh
+
+      - name: Build Frontier subscription data
+        id: frontier
+        run: python -m src publish-frontier
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+
+      - name: Commit updated data
+        id: commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/cn.txt data/cn.b64 data/ru.txt data/ru.b64 \
+            data/ir.txt data/ir.b64 data/all.txt data/all.b64 data/app_metadata.json
+          if git diff --staged --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No subscription changes to commit."
+          else
+            git commit -m "chore(data): refresh Frontier VPN subscriptions"
+            git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload Pages artifact
+        if: steps.commit.outputs.changed == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: data
+
+      - name: Upload run artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontier-run-${{ github.run_id }}
+          path: |
+            results/run.log
+            results/results.json
+            data/app_metadata.json
+          if-no-files-found: ignore
+
+      - name: Workflow summary on failure
+        if: failure()
+        run: |
+          echo "::error::Frontier subscription publish failed"
+          echo "## Frontier publish failed" >> "$GITHUB_STEP_SUMMARY"
+          echo "See job logs and uploaded artifacts for details." >> "$GITHUB_STEP_SUMMARY"
+
+  deploy-pages:
+    if: needs.publish.outputs.changed == 'true'
+    needs: publish
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
