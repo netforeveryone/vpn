@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from src.constants import (
+    COUNTRY_V2NODES,
     IGARECK_REPO_RAW,
     RUSSIA_PROFILES,
     RUSSIA_SUB_URL,
@@ -16,6 +17,27 @@ IGARECK_CONFIG_URLS = [
     f"{IGARECK_REPO_RAW}/BLACK_VLESS_RUS.txt",
     f"{IGARECK_REPO_RAW}/Vless-Reality-White-Lists-Rus-Mobile.txt",
 ]
+
+
+def fetch_country_configs(
+    country: str,
+    *,
+    proxy: str | None = None,
+) -> list[str]:
+    """Fetch proxy configs from v2nodes for cn, ru, or ir."""
+    key = country.lower()
+    if key not in COUNTRY_V2NODES:
+        known = ", ".join(sorted(COUNTRY_V2NODES))
+        raise ValueError(f"Unknown country {country!r}; choose from: {known}")
+    sub_url, country_url = COUNTRY_V2NODES[key]
+    print(f"Fetching {key.upper()} configs from {sub_url}")
+    configs = fetch_v2nodes_configs(
+        sub_url,
+        country_url,
+        proxy=proxy,
+        max_pages=V2NODES_MAX_PAGES,
+    )
+    return dedupe_proxy_urls(configs)
 
 
 def fetch_russia_configs(

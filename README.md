@@ -1,6 +1,44 @@
 # VLESS Configuration Checker
 
-Python CLI that uses a Russian gateway ([v2nodes](https://www.v2nodes.com/subscriptions/country/ru/) by default) to fetch proxy configs from [igareck/vpn-configs-for-russia](https://github.com/igareck/vpn-configs-for-russia) on GitHub, tests which ones work **from inside Russia**, and publishes the working configs to Telegram.
+Python CLI that health-checks proxy configs (VLESS, Trojan, VMess, Shadowsocks) and publishes **KRPray** (short **KRP**) subscription lists for China, Russia, and Iran, plus a combined feed for the owner’s Android/Linux/Windows/macOS apps.
+
+It also runs a Russian-gateway pipeline that fetches from [igareck/vpn-configs-for-russia](https://github.com/igareck/vpn-configs-for-russia) and can post working configs to Telegram.
+
+## KRPray subscription URLs
+
+Stable **raw GitHub** links (update on every successful [KRPray subscriptions](.github/workflows/krpray-subscriptions.yml) workflow run, typically every 4 hours):
+
+| Region | Plain text | Base64 |
+|--------|------------|--------|
+| China | [data/cn.txt](https://raw.githubusercontent.com/netforeveryone/vpn/main/data/cn.txt) | [data/cn.b64](https://raw.githubusercontent.com/netforeveryone/vpn/main/data/cn.b64) |
+| Russia | [data/ru.txt](https://raw.githubusercontent.com/netforeveryone/vpn/main/data/ru.txt) | [data/ru.b64](https://raw.githubusercontent.com/netforeveryone/vpn/main/data/ru.b64) |
+| Iran | [data/ir.txt](https://raw.githubusercontent.com/netforeveryone/vpn/main/data/ir.txt) | [data/ir.b64](https://raw.githubusercontent.com/netforeveryone/vpn/main/data/ir.b64) |
+| All regions | [data/all.txt](https://raw.githubusercontent.com/netforeveryone/vpn/main/data/all.txt) | [data/all.b64](https://raw.githubusercontent.com/netforeveryone/vpn/main/data/all.b64) |
+
+Metadata (counts, protocols, last update): [data/app_metadata.json](https://raw.githubusercontent.com/netforeveryone/vpn/main/data/app_metadata.json).
+
+**GitHub Pages mirror** (under `/data/` as required by the apps; enable Pages for this repo):
+
+| Region | Pages URL |
+|--------|-----------|
+| China | `https://netforeveryone.github.io/vpn/data/cn.txt` (and `cn.b64`) |
+| Russia | `https://netforeveryone.github.io/vpn/data/ru.txt` (and `ru.b64`) |
+| Iran | `https://netforeveryone.github.io/vpn/data/ir.txt` (and `ir.b64`) |
+| All | `https://netforeveryone.github.io/vpn/data/all.txt` (and `all.b64`) |
+
+Each `.txt` / `.b64` subscription includes `profile-title` and `profile-update-interval` comment headers for compatible clients.
+
+### How lists are built
+
+1. **Collect** configs from v2nodes CN/RU/IR subscriptions, plus `resources/subscription_urls.txt`.
+2. **Local health check** — HTTP through Xray; rank by latency under `FRONTIER_MAX_LATENCY_MS`.
+3. **In-country vantage** (when available) — configs are re-tested through a CN/RU/IR gateway (v2nodes configs or verified public SOCKS in that country).
+4. **Heuristics** — Reality, Vision, XHTTP, fragment, TLS/WebSocket, and CDN-friendly SNI scoring for GFW/TSPU/Iran filtering when vantage is unavailable.
+5. **Write** `data/{cn,ru,ir,all}.txt`, matching `.b64` files, and `data/app_metadata.json`.
+
+```bash
+python -m src publish-frontier
+```
 
 ## Prerequisites
 
@@ -155,9 +193,15 @@ tail -f results/run.log
 
 Configs that pass health checks **through the Russian gateway** and are under `TELEGRAM_MAX_LATENCY_MS` are saved to `data/configs_working.txt`. Telegram gets **one combined message** with the top `TELEGRAM_TOP_N` (default 5) fastest configs (each with its own `<code>` block), plus a single footer `🆔 @channel`. Splits into multiple messages only if the post exceeds Telegram’s 4096-character limit. Each daily run reposts the current best set (dedupe does not block top-N). Default channel: [@vpnf24](https://t.me/vpnf24) (`TELEGRAM_CHAT_ID=@vpnf24`).
 
-## Daily automation (GitHub Actions)
+## Automation (GitHub Actions)
 
-Workflow [`.github/workflows/daily-pipeline.yml`](.github/workflows/daily-pipeline.yml) runs `python -m src run` every day at **06:00 UTC** and on manual **workflow_dispatch**. Add repository secrets:
+| Workflow | Schedule | Purpose |
+|----------|----------|---------|
+| [KRPray subscriptions](.github/workflows/krpray-subscriptions.yml) | Every **4 hours** + manual | `publish-frontier`, commit `data/`, deploy GitHub Pages backup |
+| [CI](.github/workflows/ci.yml) | On PRs / pushes to `main` | Ruff + pytest |
+| [Daily VPN pipeline](.github/workflows/daily-pipeline.yml) | Daily **06:00 UTC** + manual | Russian vantage run + Telegram |
+
+KRPray subscription runs need no repository secrets (only `GITHUB_TOKEN` for commits). For the Telegram daily pipeline, add:
 
 | Secret | Required | Description |
 |--------|----------|-------------|

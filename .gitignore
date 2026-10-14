@@ -11,7 +11,16 @@ venv/
 # Secrets and local config
 .env
 configs.txt
-data/
+data/*
+!data/cn.txt
+!data/cn.b64
+!data/ru.txt
+!data/ru.b64
+!data/ir.txt
+!data/ir.b64
+!data/all.txt
+!data/all.b64
+!data/app_metadata.json
 
 # Output
 results/

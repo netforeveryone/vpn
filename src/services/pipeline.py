@@ -16,8 +16,9 @@ from src.constants import (
 from src.resources.configs import load_configs, save_config_lines
 from src.resources.subscriptions import load_subscription_urls
 from src.services.fetcher import IGARECK_CONFIG_URLS, fetch_remote_configs, fetch_russia_configs
-from src.services.vantage import find_russian_vantage
+from src.services.frontier import run_frontier_publish
 from src.services.runner import test_configs
+from src.services.vantage import find_russian_vantage
 from src.services.telegram import is_publishable, publish_configs
 from src.utils.xray import verify_xray_binary
 
@@ -149,6 +150,10 @@ async def run_republish_telegram(*, force_all: bool = False) -> int:
     print(f"Republishing up to {healthy} healthy config(s) to Telegram...")
     count = await publish_configs(results, urls, skip_dedupe=force_all)
     return 0 if count > 0 else 1
+
+
+async def run_frontier() -> int:
+    return await run_frontier_publish()
 
 
 async def run_test_only() -> int:

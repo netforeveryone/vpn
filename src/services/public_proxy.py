@@ -8,11 +8,11 @@ import httpx
 
 from src.constants import (
     IP_CHECK_URL,
-    PUBLIC_PROXY_LIST_URL,
     PUBLIC_PROXY_MAX_CANDIDATES,
     PUBLIC_PROXY_VERIFY_TIMEOUT,
     REQUEST_TIMEOUT,
     RUSSIA_COUNTRY_CODE,
+    public_proxy_list_url,
 )
 from src.services.checker import lookup_geo, parse_ip
 
@@ -49,11 +49,12 @@ def _parse_proxy_lines(text: str) -> list[SocksEndpoint]:
     return endpoints
 
 
-def fetch_public_ru_socks_candidates() -> list[SocksEndpoint]:
-    """Load SOCKS5 endpoints advertised as Russian from a public list."""
-    print(f"Fetching public SOCKS5 proxy list ({PUBLIC_PROXY_LIST_URL})...")
+def fetch_public_socks_candidates(country_code: str) -> list[SocksEndpoint]:
+    """Load SOCKS5 endpoints advertised for a country from a public list."""
+    url = public_proxy_list_url(country_code)
+    print(f"Fetching public SOCKS5 proxy list ({url})...")
     with httpx.Client(timeout=REQUEST_TIMEOUT, follow_redirects=True) as client:
-        response = client.get(PUBLIC_PROXY_LIST_URL)
+        response = client.get(url)
     if response.status_code < 200 or response.status_code >= 300:
         raise RuntimeError(f"Public proxy list HTTP {response.status_code}")
     endpoints = _parse_proxy_lines(response.text)
@@ -61,7 +62,14 @@ def fetch_public_ru_socks_candidates() -> list[SocksEndpoint]:
     return endpoints[:PUBLIC_PROXY_MAX_CANDIDATES]
 
 
-async def _verify_socks_exit_in_russia_impl(host: str, port: int) -> str:
+def fetch_public_ru_socks_candidates() -> list[SocksEndpoint]:
+    """Load SOCKS5 endpoints advertised as Russian from a public list."""
+    return fetch_public_socks_candidates(RUSSIA_COUNTRY_CODE)
+
+
+async def _verify_socks_exit_country_impl(
+    host: str, port: int, country_code: str
+) -> str:
     proxy = f"socks5h://{host}:{port}"
     async with httpx.AsyncClient(proxy=proxy, timeout=REQUEST_TIMEOUT) as client:
         response = await client.get(IP_CHECK_URL)
@@ -71,19 +79,25 @@ async def _verify_socks_exit_in_russia_impl(host: str, port: int) -> str:
     if not ip:
         raise RuntimeError("Could not parse exit IP")
     geo = await lookup_geo(ip)
-    if geo.get("country_code") != RUSSIA_COUNTRY_CODE:
+    if geo.get("country_code") != country_code:
         raise RuntimeError(
-            f"Proxy exit not in Russia (got {geo.get('country_code') or 'unknown'})"
+            f"Proxy exit not in {country_code} "
+            f"(got {geo.get('country_code') or 'unknown'})"
         )
     return ip
 
 
-async def verify_socks_exit_in_russia(host: str, port: int) -> str:
-    """Return exit IP if the SOCKS proxy works and GeoIP country is Russia."""
+async def verify_socks_exit_country(host: str, port: int, country_code: str) -> str:
+    """Return exit IP if the SOCKS proxy works and GeoIP matches country_code."""
     try:
         return await asyncio.wait_for(
-            _verify_socks_exit_in_russia_impl(host, port),
+            _verify_socks_exit_country_impl(host, port, country_code),
             timeout=PUBLIC_PROXY_VERIFY_TIMEOUT,
         )
     except TimeoutError:
         raise RuntimeError("SOCKS verify timeout") from None
+
+
+async def verify_socks_exit_in_russia(host: str, port: int) -> str:
+    """Return exit IP if the SOCKS proxy works and GeoIP country is Russia."""
+    return await verify_socks_exit_country(host, port, RUSSIA_COUNTRY_CODE)

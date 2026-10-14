@@ -37,12 +37,25 @@ IGARECK_REPO_RAW = (
     "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/main"
 )
 
+_V2NODES_KEY = "ABD45A65D74F1DC"
+
 V2NODES_RU_URL = (
-    "https://www.v2nodes.com/subscriptions/country/ru/"
-    "?key=ABD45A65D74F1DC"
+    f"https://www.v2nodes.com/subscriptions/country/ru/?key={_V2NODES_KEY}"
+)
+V2NODES_CN_URL = (
+    f"https://www.v2nodes.com/subscriptions/country/cn/?key={_V2NODES_KEY}"
+)
+V2NODES_IR_URL = (
+    f"https://www.v2nodes.com/subscriptions/country/ir/?key={_V2NODES_KEY}"
 )
 V2NODES_COUNTRY_URL = "https://www.v2nodes.com/country/ru/"
 V2NODES_MAX_PAGES = int(os.environ.get("V2NODES_MAX_PAGES", "10"))
+
+COUNTRY_V2NODES: dict[str, tuple[str, str]] = {
+    "cn": (V2NODES_CN_URL, "https://www.v2nodes.com/country/cn/"),
+    "ru": (V2NODES_RU_URL, "https://www.v2nodes.com/country/ru/"),
+    "ir": (V2NODES_IR_URL, "https://www.v2nodes.com/country/ir/"),
+}
 
 RUSSIA_PROFILES: dict[str, str] = {
     "v2nodes": V2NODES_RU_URL,
@@ -93,12 +106,44 @@ SUBSCRIPTION_URLS_FILE = ROOT_DIR / "resources" / "subscription_urls.txt"
 
 SOCKS_PROXY = "socks5h://127.0.0.1"
 RUSSIA_COUNTRY_CODE = "RU"
+CHINA_COUNTRY_CODE = "CN"
+IRAN_COUNTRY_CODE = "IR"
 
 PUBLIC_PROXY_LIST_URL = os.environ.get(
     "PUBLIC_PROXY_LIST_URL",
     "https://api.proxyscrape.com/v2/?request=displayproxies"
     "&protocol=socks5&country=ru&timeout=10000",
 )
+
+
+def public_proxy_list_url(country_code: str) -> str:
+    """SOCKS5 list URL for a GeoIP country code (CN, RU, IR, …)."""
+    override = os.environ.get(f"PUBLIC_PROXY_LIST_URL_{country_code.upper()}")
+    if override:
+        return override
+    cc = country_code.lower()
+    return (
+        "https://api.proxyscrape.com/v2/?request=displayproxies"
+        f"&protocol=socks5&country={cc}&timeout=10000"
+    )
+
+
+FRONTIER_COUNTRIES = ("cn", "ru", "ir")
+FRONTIER_MAX_PER_COUNTRY = int(os.environ.get("FRONTIER_MAX_PER_COUNTRY", "120"))
+FRONTIER_GATEWAY_MAX_CONFIGS = int(
+    os.environ.get("FRONTIER_GATEWAY_MAX_CONFIGS", "60")
+)
+FRONTIER_HEURISTIC_MIN = int(os.environ.get("FRONTIER_HEURISTIC_MIN", "4"))
+FRONTIER_UPDATE_INTERVAL_HOURS = int(
+    os.environ.get("FRONTIER_UPDATE_INTERVAL_HOURS", "4")
+)
+FRONTIER_MAX_LATENCY_MS = int(os.environ.get("FRONTIER_MAX_LATENCY_MS", "2500"))
+FRONTIER_DATA_FILES = {
+    "cn": DATA_DIR / "cn.txt",
+    "ru": DATA_DIR / "ru.txt",
+    "ir": DATA_DIR / "ir.txt",
+    "all": DATA_DIR / "all.txt",
+}
 PUBLIC_PROXY_MAX_CANDIDATES = int(os.environ.get("PUBLIC_PROXY_MAX_CANDIDATES", "40"))
 PUBLIC_PROXY_VERIFY_TIMEOUT = int(
     os.environ.get("PUBLIC_PROXY_VERIFY_TIMEOUT_MS", "8000")
