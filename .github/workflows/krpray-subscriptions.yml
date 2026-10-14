@@ -1,4 +1,4 @@
-name: Frontier subscriptions
+name: KRPray subscriptions
 
 on:
   schedule:
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: frontier-subscriptions
+  group: krpray-subscriptions
   cancel-in-progress: false
 
 permissions:
@@ -57,8 +57,8 @@ jobs:
         if: steps.xray-cache.outputs.cache-hit != 'true'
         run: bash scripts/install-xray.sh
 
-      - name: Build Frontier subscription data
-        id: frontier
+      - name: Build KRPray subscription data
+        id: krpray
         run: python -m src publish-frontier
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -74,22 +74,30 @@ jobs:
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "No subscription changes to commit."
           else
-            git commit -m "chore(data): refresh Frontier VPN subscriptions"
+            git commit -m "chore(data): refresh KRPray subscriptions"
             git push
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Prepare GitHub Pages site
+        if: steps.krpray.outcome == 'success'
+        run: |
+          mkdir -p _pages/data
+          cp data/cn.txt data/cn.b64 data/ru.txt data/ru.b64 \
+            data/ir.txt data/ir.b64 data/all.txt data/all.b64 \
+            data/app_metadata.json _pages/data/
+
       - name: Upload Pages artifact
-        if: steps.commit.outputs.changed == 'true'
+        if: steps.krpray.outcome == 'success'
         uses: actions/upload-pages-artifact@v3
         with:
-          path: data
+          path: _pages
 
       - name: Upload run artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: frontier-run-${{ github.run_id }}
+          name: krpray-run-${{ github.run_id }}
           path: |
             results/run.log
             results/results.json
@@ -99,12 +107,12 @@ jobs:
       - name: Workflow summary on failure
         if: failure()
         run: |
-          echo "::error::Frontier subscription publish failed"
-          echo "## Frontier publish failed" >> "$GITHUB_STEP_SUMMARY"
+          echo "::error::KRPray subscription publish failed"
+          echo "## KRPray publish failed" >> "$GITHUB_STEP_SUMMARY"
           echo "See job logs and uploaded artifacts for details." >> "$GITHUB_STEP_SUMMARY"
 
   deploy-pages:
-    if: needs.publish.outputs.changed == 'true'
+    if: needs.publish.result == 'success'
     needs: publish
     runs-on: ubuntu-latest
     environment:

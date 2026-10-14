@@ -28,7 +28,7 @@ def run(argv: list[str] | None = None) -> None:
     )
     subparsers.add_parser(
         "publish-frontier",
-        help="Build CN/RU/IR/All subscription files under data/ for Frontier VPN apps",
+        help="Build CN/RU/IR/All subscription files under data/ for KRPray apps",
     )
     subparsers.add_parser("test", help="Test configs from configs.txt only")
 

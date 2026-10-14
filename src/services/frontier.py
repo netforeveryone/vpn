@@ -1,4 +1,4 @@
-"""Build per-country Frontier VPN subscription lists (CN / RU / IR / all)."""
+"""Build per-country KRPray subscription lists (CN / RU / IR / all)."""
 
 from __future__ import annotations
 
@@ -219,6 +219,6 @@ async def run_frontier_publish() -> int:
         vantage_modes=vantage_modes,
         repository=repo,
     )
-    print(f"\nWrote {len(written)} Frontier artifacts under data/")
+    print(f"\nWrote {len(written)} KRPray artifacts under data/")
     total = sum(len(country_urls[c]) for c in FRONTIER_COUNTRIES)
     return 0 if total > 0 else 1

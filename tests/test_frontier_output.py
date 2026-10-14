@@ -16,7 +16,7 @@ def test_subscription_headers(tmp_path, monkeypatch):
         },
     )
     body = subscription_body(["vless://x"], "cn")
-    assert "# profile-title:" in body
+    assert "# profile-title: KRPray" in body
     assert "# profile-update-interval:" in body
     publish_frontier_files(
         {"cn": ["vless://a"], "ru": [], "ir": [], "all": ["vless://a"]},

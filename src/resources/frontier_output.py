@@ -1,4 +1,4 @@
-"""Write Frontier VPN subscription artifacts under data/."""
+"""Write KRPray subscription artifacts under data/."""
 
 from __future__ import annotations
 
@@ -15,15 +15,15 @@ from src.constants import (
 from src.services.heuristics import protocol_counts
 
 _PROFILE_TITLES = {
-    "cn": "Frontier VPN — China",
-    "ru": "Frontier VPN — Russia",
-    "ir": "Frontier VPN — Iran",
-    "all": "Frontier VPN — All regions",
+    "cn": "KRPray — China",
+    "ru": "KRPray — Russia",
+    "ir": "KRPray — Iran",
+    "all": "KRPray — All regions",
 }
 
 
 def subscription_body(urls: list[str], country: str) -> str:
-    title = _PROFILE_TITLES.get(country, f"Frontier VPN — {country.upper()}")
+    title = _PROFILE_TITLES.get(country, f"KRPray — {country.upper()}")
     lines = [
         f"# profile-title: {title}",
         f"# profile-update-interval: {FRONTIER_UPDATE_INTERVAL_HOURS}",

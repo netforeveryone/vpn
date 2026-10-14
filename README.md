@@ -1,12 +1,12 @@
 # VLESS Configuration Checker
 
-Python CLI that health-checks proxy configs (VLESS, Trojan, VMess, Shadowsocks) and publishes **Frontier VPN** subscription lists for China, Russia, and Iran, plus a combined feed for the owner’s Android/Linux/Windows/macOS apps.
+Python CLI that health-checks proxy configs (VLESS, Trojan, VMess, Shadowsocks) and publishes **KRPray** (short **KRP**) subscription lists for China, Russia, and Iran, plus a combined feed for the owner’s Android/Linux/Windows/macOS apps.
 
 It also runs a Russian-gateway pipeline that fetches from [igareck/vpn-configs-for-russia](https://github.com/igareck/vpn-configs-for-russia) and can post working configs to Telegram.
 
-## Frontier VPN subscription URLs
+## KRPray subscription URLs
 
-Stable **raw GitHub** links (update on every successful [Frontier subscriptions](.github/workflows/frontier-subscriptions.yml) workflow run, typically every 4 hours):
+Stable **raw GitHub** links (update on every successful [KRPray subscriptions](.github/workflows/krpray-subscriptions.yml) workflow run, typically every 4 hours):
 
 | Region | Plain text | Base64 |
 |--------|------------|--------|
@@ -17,14 +17,14 @@ Stable **raw GitHub** links (update on every successful [Frontier subscriptions]
 
 Metadata (counts, protocols, last update): [data/app_metadata.json](https://raw.githubusercontent.com/netforeveryone/vpn/main/data/app_metadata.json).
 
-**GitHub Pages mirror** (same files at site root after Pages is enabled for this repo):
+**GitHub Pages mirror** (under `/data/` as required by the apps; enable Pages for this repo):
 
 | Region | Pages URL |
 |--------|-----------|
-| China | `https://netforeveryone.github.io/vpn/cn.txt` (and `cn.b64`) |
-| Russia | `https://netforeveryone.github.io/vpn/ru.txt` (and `ru.b64`) |
-| Iran | `https://netforeveryone.github.io/vpn/ir.txt` (and `ir.b64`) |
-| All | `https://netforeveryone.github.io/vpn/all.txt` (and `all.b64`) |
+| China | `https://netforeveryone.github.io/vpn/data/cn.txt` (and `cn.b64`) |
+| Russia | `https://netforeveryone.github.io/vpn/data/ru.txt` (and `ru.b64`) |
+| Iran | `https://netforeveryone.github.io/vpn/data/ir.txt` (and `ir.b64`) |
+| All | `https://netforeveryone.github.io/vpn/data/all.txt` (and `all.b64`) |
 
 Each `.txt` / `.b64` subscription includes `profile-title` and `profile-update-interval` comment headers for compatible clients.
 
@@ -197,11 +197,11 @@ Configs that pass health checks **through the Russian gateway** and are under `T
 
 | Workflow | Schedule | Purpose |
 |----------|----------|---------|
-| [Frontier subscriptions](.github/workflows/frontier-subscriptions.yml) | Every **4 hours** + manual | `publish-frontier`, commit `data/`, deploy GitHub Pages backup |
+| [KRPray subscriptions](.github/workflows/krpray-subscriptions.yml) | Every **4 hours** + manual | `publish-frontier`, commit `data/`, deploy GitHub Pages backup |
 | [CI](.github/workflows/ci.yml) | On PRs / pushes to `main` | Ruff + pytest |
 | [Daily VPN pipeline](.github/workflows/daily-pipeline.yml) | Daily **06:00 UTC** + manual | Russian vantage run + Telegram |
 
-Frontier runs need no repository secrets (only `GITHUB_TOKEN` for commits). For the Telegram daily pipeline, add:
+KRPray subscription runs need no repository secrets (only `GITHUB_TOKEN` for commits). For the Telegram daily pipeline, add:
 
 | Secret | Required | Description |
 |--------|----------|-------------|

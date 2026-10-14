@@ -1,4 +1,4 @@
-# profile-title: Frontier VPN — China
+# profile-title: KRPray — China
 # profile-update-interval: 4
 
 vless://f8d52ece-fad4-478d-875d-df6eed3befa7@pl.golangwikito.cfd:443?encryption=none&flow=xtls-rprx-vision&pbk=DsTVLCehsKvfFGtNZU5leKOLTlEp28qeifHYtRKOFwg&security=reality&sid=f8b695e5c59d028c&sni=pl.golangwikito.cfd&type=tcp&fp=chrome#%F0%9F%87%B5%F0%9F%87%B1%20Poland%2C%20Warsaw%20%7C%20%5BBL%5D
