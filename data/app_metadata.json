@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-01T06:29:43.590901+00:00",
+  "updated_at": "2026-11-01T09:51:24.701829+00:00",
   "profile_update_interval_hours": 4,
   "repository": "netforeveryone/vpn",
   "countries": {
@@ -25,5 +25,5 @@
       "vantage": "gateway:subscription"
     }
   },
-  "all_count": 102
+  "all_count": 105
 }
