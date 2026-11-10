@@ -1,31 +1,32 @@
 {
-  "updated_at": "2026-11-10T02:45:35.748131+00:00",
+  "updated_at": "2026-11-10T06:28:34.622828+00:00",
   "profile_update_interval_hours": 4,
   "repository": "netforeveryone/vpn",
   "countries": {
     "cn": {
-      "count": 58,
+      "count": 80,
       "protocols": {
-        "vless": 58
+        "vless": 76,
+        "trojan": 4
       },
       "vantage": "heuristic"
     },
     "ru": {
       "count": 80,
       "protocols": {
-        "vmess": 1,
-        "vless": 79
+        "vless": 76,
+        "trojan": 4
       },
       "vantage": "gateway:subscription"
     },
     "ir": {
       "count": 80,
       "protocols": {
-        "vmess": 2,
-        "vless": 78
+        "vless": 76,
+        "trojan": 4
       },
-      "vantage": "gateway:subscription"
+      "vantage": "heuristic"
     }
   },
-  "all_count": 83
+  "all_count": 121
 }
